@@ -109,16 +109,6 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 		return;
 	}
 
-/*	if (intern->rt != (php_jsruntime_object *)NULL) {
-	    // just dereference the JSRuntime object
-	    intern->rt = NULL;
-	}
-
-	if (intern->ct != (JSContext *)NULL) {
-        JS_DestroyContext(intern->ct);
-	    //intern->ct = NULL;
-	}*/
-
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(intern);
 }
