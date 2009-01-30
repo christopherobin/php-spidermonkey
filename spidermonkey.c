@@ -168,6 +168,7 @@ static
 static function_entry php_spidermonkey_jso_functions[] = {
     PHP_ME(JSObject, __construct, php_spidermonkey_jso_arginfo, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     PHP_ME(JSObject, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
+    PHP_ME(JSObject, evaluateScript, NULL, ZEND_ACC_PUBLIC)
     { NULL, NULL, NULL }
 };
 

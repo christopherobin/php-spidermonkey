@@ -61,6 +61,7 @@ PHP_METHOD(JSContext, __construct);
 PHP_METHOD(JSContext, __destruct);
 PHP_METHOD(JSObject, __construct);
 PHP_METHOD(JSObject, __destruct);
+PHP_METHOD(JSObject, evaluateScript);
 
 /* Define the entry point symbol
  * Zend will use when loading this module
