@@ -4,7 +4,8 @@
 
 /* Define Extension Properties */
 #define PHP_SPIDERMONKEY_EXTNAME    "spidermonkey"
-#define PHP_SPIDERMONKEY_EXTVER     "0.2"
+#define PHP_SPIDERMONKEY_MINFO_NAME "SpiderMonkey"
+#define PHP_SPIDERMONKEY_EXTVER     "0.4"
 
 /* Import configure options
    when building outside of
@@ -28,6 +29,10 @@
 
 #define PHP_SPIDERMONKEY_JSO_NAME           "JSObject"
 #define PHP_JSOBJECT_DESCRIPTOR_RES_NAME    "Javascript Object"
+
+/************************
+* EXTENSION INTERNALS
+************************/
 
 /* Structure for JSRuntime object. */
 typedef struct _php_jsruntime_object  {
@@ -56,9 +61,16 @@ extern zend_class_entry *php_spidermonkey_jso_entry;
 // functions
 PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);
+PHP_MINFO_FUNCTION(spidermonkey);
 PHP_METHOD(JSRuntime, __construct);
 PHP_METHOD(JSContext, __construct);
 PHP_METHOD(JSContext, __destruct);
+PHP_METHOD(JSContext, setOptions);
+PHP_METHOD(JSContext, toggleOptions);
+PHP_METHOD(JSContext, getOptions);
+PHP_METHOD(JSContext, setVersion);
+PHP_METHOD(JSContext, getVersion);
+PHP_METHOD(JSContext, getVersionString);
 PHP_METHOD(JSObject, __construct);
 PHP_METHOD(JSObject, __destruct);
 PHP_METHOD(JSObject, evaluateScript);

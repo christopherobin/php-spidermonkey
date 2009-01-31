@@ -12,7 +12,7 @@ zend_module_entry spidermonkey_module_entry = {
     PHP_MSHUTDOWN(spidermonkey), /* MSHUTDOWN */
     NULL, /* RINIT */
     NULL, /* RSHUTDOWN */
-    NULL, /* MINFO */
+    PHP_MINFO(spidermonkey), /* MINFO */
     PHP_SPIDERMONKEY_EXTVER,
     STANDARD_MODULE_PROPERTIES
 };
@@ -65,7 +65,7 @@ static zend_object_value php_jsruntime_object_new_ex(zend_class_entry *class_typ
 
     intern->rt = JS_NewRuntime(PHP_JSRUNTIME_GC_MEMORY_THRESHOLD);
 
-	ALLOC_HASHTABLE(intern->zo.properties);
+	//ALLOC_HASHTABLE(intern->zo.properties);
 
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
@@ -96,6 +96,12 @@ static
 static function_entry php_spidermonkey_jsc_functions[] = {
     PHP_ME(JSContext, __construct, php_spidermonkey_jsc_arginfo, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     PHP_ME(JSContext, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
+    PHP_ME(JSContext, setOptions, NULL, ZEND_ACC_PUBLIC)
+    PHP_ME(JSContext, toggleOptions, NULL, ZEND_ACC_PUBLIC)
+    PHP_ME(JSContext, getOptions, NULL, ZEND_ACC_PUBLIC)
+    PHP_ME(JSContext, setVersion, NULL, ZEND_ACC_PUBLIC)
+    PHP_ME(JSContext, getVersion, NULL, ZEND_ACC_PUBLIC)
+    PHP_ME(JSContext, getVersionString, NULL, ZEND_ACC_PUBLIC)
     { NULL, NULL, NULL }
 };
 
@@ -127,7 +133,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 		*ptr = intern;
 	}
 
-	ALLOC_HASHTABLE(intern->zo.properties);
+	//ALLOC_HASHTABLE(intern->zo.properties);
 
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
@@ -190,7 +196,7 @@ static zend_object_value php_jsobject_object_new_ex(zend_class_entry *class_type
 		*ptr = intern;
 	}
 
-	ALLOC_HASHTABLE(intern->zo.properties);
+	//ALLOC_HASHTABLE(intern->zo.properties);
 
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
@@ -210,6 +216,34 @@ static zend_object_value php_jsobject_object_new(zend_class_entry *class_type TS
 */
 PHP_MINIT_FUNCTION(spidermonkey)
 {
+
+    // CONSTANTS
+    
+    // OPTIONS
+    REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",                   JSOPTION_ATLINE,                    CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",             JSOPTION_COMPILE_N_GO,              CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_DONT_REPORT_UNCAUGHT",     JSOPTION_DONT_REPORT_UNCAUGHT,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_NATIVE_BRANCH_CALLBACK",   JSOPTION_NATIVE_BRANCH_CALLBACK,    CONST_CS | CONST_PERSISTENT);
+//    REGISTER_LONG_CONSTANT("JSOPTION_RELIMIT",                  JSOPTION_RELIMIT,                   CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_STRICT",                   JSOPTION_STRICT,                    CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_VAROBJFIX",                JSOPTION_VAROBJFIX,                 CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_WERROR",                   JSOPTION_WERROR,                    CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSOPTION_XML",                      JSOPTION_XML,                       CONST_CS | CONST_PERSISTENT);
+
+    // VERSIONS
+    REGISTER_LONG_CONSTANT("JSVERSION_1_0",     JSVERSION_1_0,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_1",     JSVERSION_1_1,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_2",     JSVERSION_1_2,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_3",     JSVERSION_1_3,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_4",     JSVERSION_1_4,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_ECMA_3",  JSVERSION_ECMA_3,   CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_5",     JSVERSION_1_5,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_6",     JSVERSION_1_6,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_1_7",     JSVERSION_1_7,      CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("JSVERSION_DEFAULT", JSVERSION_DEFAULT,  CONST_CS | CONST_PERSISTENT);
+
+    // CLASS INIT
+
     memcpy(&jsruntime_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
     memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
     memcpy(&jsobject_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
@@ -240,4 +274,13 @@ PHP_MSHUTDOWN_FUNCTION(spidermonkey)
     JS_ShutDown();
     
     return SUCCESS;
+}
+
+PHP_MINFO_FUNCTION(spidermonkey)
+{
+    php_info_print_table_start();
+    php_info_print_table_row(2, PHP_SPIDERMONKEY_MINFO_NAME, "enabled");
+    php_info_print_table_row(2, "Version", PHP_SPIDERMONKEY_EXTVER);
+    php_info_print_table_row(2, "LibJS Version", JS_VersionToString(JS_VERSION));
+    php_info_print_table_end();
 }

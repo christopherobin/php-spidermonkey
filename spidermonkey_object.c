@@ -3,8 +3,16 @@
 static int le_jsobject_descriptor;
 
 /**
-* JSContext embedding
+* JSObject embedding
 */
+
+/* The class of the global object. */
+static JSClass script_class = {
+    "script", JSCLASS_GLOBAL_FLAGS,
+    JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
+    JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub, JS_FinalizeStub,
+    JSCLASS_NO_OPTIONAL_MEMBERS
+};
 
 zend_class_entry *php_spidermonkey_jso_entry;
 
@@ -23,7 +31,7 @@ PHP_METHOD(JSObject, __construct)
     intern_ot = (php_jsobject_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
     intern_ot->ct = intern_ct;
-    intern_ot->obj = JS_NewObject(intern_ct->ct, NULL, NULL, NULL);
+    intern_ot->obj = JS_NewObject(intern_ct->ct, &script_class, NULL, NULL);
 
     JS_InitStandardClasses(intern_ct->ct, intern_ot->obj);
 
@@ -70,11 +78,16 @@ PHP_METHOD(JSObject, evaluateScript)
             else
                 RETURN_FALSE;
         }
+        else if (JSVAL_IS_INT(rval))
+        {
+            int d;
+            d = JSVAL_TO_INT(rval);
+            RETVAL_LONG(d);
+        }
         else if (JSVAL_IS_STRING(rval))
         {
             JSString *str;
             str = JS_ValueToString(intern->ct->ct, rval);
-//            php_printf("str: %p (%d)\n", str, JSSTRING_LENGTH(str));
             if (str != NULL)
             {
                 char *txt = JS_GetStringBytes(str);
@@ -84,6 +97,21 @@ PHP_METHOD(JSObject, evaluateScript)
             {
                 RETURN_FALSE;
             }
+        }
+        else if (JSVAL_IS_BOOLEAN(rval))
+        {
+            if (rval == JSVAL_TRUE)
+            {
+                RETURN_TRUE;
+            }
+            else
+            {
+                RETURN_FALSE;
+            }
+        }
+        else if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
+        {
+            RETURN_NULL();
         }
         else
             RETURN_FALSE;
