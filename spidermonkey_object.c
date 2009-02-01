@@ -7,12 +7,7 @@ static int le_jsobject_descriptor;
 */
 
 /* The class of the global object. */
-static JSClass script_class = {
-    "script", JSCLASS_GLOBAL_FLAGS,
-    JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
-    JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub, JS_FinalizeStub,
-    JSCLASS_NO_OPTIONAL_MEMBERS
-};
+//static 
 
 zend_class_entry *php_spidermonkey_jso_entry;
 
@@ -30,8 +25,12 @@ PHP_METHOD(JSObject, __construct)
     intern_ct = (php_jscontext_object *) zend_object_store_get_object(z_rt TSRMLS_CC);
     intern_ot = (php_jsobject_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
+    /* Other thingy */
     intern_ot->ct = intern_ct;
-    intern_ot->obj = JS_NewObject(intern_ct->ct, &script_class, NULL, NULL);
+    intern_ot->obj = JS_NewObject(intern_ct->ct, &intern_ct->script_class, NULL, NULL);
+
+    // register globals functions
+    JS_DefineFunctions(intern_ct->ct, intern_ot->obj, intern_ct->global_functions);
 
     JS_InitStandardClasses(intern_ct->ct, intern_ot->obj);
 
@@ -43,9 +42,6 @@ PHP_METHOD(JSObject, __destruct)
     php_jsobject_object *intern_ot;
 
     intern_ot = (php_jsobject_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-
-    /*if (intern_ct->obj != (JSObject*)NULL)
-        JS_DestroyContext(intern_ct->ct);*/
 
     intern_ot->obj = NULL; // the context destroy the objects itself
     intern_ot->ct = NULL;

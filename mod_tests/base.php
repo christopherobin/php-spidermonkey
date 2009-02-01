@@ -19,3 +19,4 @@ echo "MyConcat(\"hello\", \"world\"):\n";
 var_dump($c->evaluateScript($script2));
 echo "ParseInt(MyMath.hyp(4, 6)):\n";
 var_dump($c->evaluateScript("parseInt(MyMath.hyp(4, 6))"));
+var_dump($c->evaluateScript('write("hello world !\n")'));

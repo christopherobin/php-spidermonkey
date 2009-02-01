@@ -2,10 +2,11 @@
 
 static int le_jscontext_descriptor;
 
+JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+
 /**
 * JSContext embedding
 */
-
 zend_class_entry *php_spidermonkey_jsc_entry;
 
 /* The error reporter callback. */
@@ -33,6 +34,41 @@ PHP_METHOD(JSContext, __construct)
 
     intern_ct->rt = intern_rt;
     intern_ct->ct = JS_NewContext(intern_rt->rt, 8092);
+
+
+    // THE SCRIPT CLASS IS A GLOBAL OBJECT USED BY PHP TO OFFER METHODS
+    intern_ct->script_class.name            = "script";
+    intern_ct->script_class.flags           = JSCLASS_GLOBAL_FLAGS;
+
+    /* Mandatory non-null function pointer members. */
+    intern_ct->script_class.addProperty     = JS_PropertyStub;
+    intern_ct->script_class.delProperty     = JS_PropertyStub;
+    intern_ct->script_class.getProperty     = JS_PropertyStub;
+    intern_ct->script_class.setProperty     = JS_PropertyStub;
+    intern_ct->script_class.enumerate       = JS_EnumerateStub;
+    intern_ct->script_class.resolve         = JS_ResolveStub;
+    intern_ct->script_class.convert         = JS_ConvertStub;
+    intern_ct->script_class.finalize        = JS_FinalizeStub;
+
+    /* Optionally non-null members start here. */
+    intern_ct->script_class.getObjectOps    = 0;
+    intern_ct->script_class.checkAccess     = 0;
+    intern_ct->script_class.call            = 0;
+    intern_ct->script_class.construct       = 0;
+    intern_ct->script_class.xdrObject       = 0;
+    intern_ct->script_class.hasInstance     = 0;
+    intern_ct->script_class.mark            = 0;
+    intern_ct->script_class.reserveSlots    = 0;
+
+    // register global functions
+    intern_ct->global_functions[0].name     = "write";
+    intern_ct->global_functions[0].call     = script_write;
+    intern_ct->global_functions[0].nargs    = 1;
+    intern_ct->global_functions[0].flags    = 0;
+    intern_ct->global_functions[0].extra    = 0;
+
+    // last element
+    memset(&intern_ct->global_functions[1], 0, sizeof(JSFunctionSpec));
 
     // says that our script runs in global scope
     JS_SetOptions(intern_ct->ct, JSOPTION_VAROBJFIX);
@@ -158,3 +194,20 @@ PHP_METHOD(JSContext, getVersionString)
 
     RETVAL_STRING(version_str, strlen(version_str));
 }
+
+/*******************************************
+* Internal function for the script JS class
+*******************************************/
+
+JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+    JSString *str;
+    str = JS_ValueToString(cx, argv[0]);
+    char *txt = JS_GetStringBytes(str);
+    php_printf("%s", txt);
+
+    return JSVAL_TRUE;
+}
+
+
+

@@ -45,6 +45,8 @@ typedef struct _php_jscontext_object  {
 	zend_object             zo;
 	php_jsruntime_object    *rt;
 	JSContext               *ct;
+	JSClass                 script_class;
+    JSFunctionSpec          global_functions[2];
 } php_jscontext_object;
 
 /* Structure for JSObject object. */
