@@ -68,6 +68,7 @@ PHP_METHOD(JSRuntime, __construct);
 PHP_METHOD(JSRuntime, createContext);
 PHP_METHOD(JSContext, __construct);
 PHP_METHOD(JSContext, __destruct);
+PHP_METHOD(JSContext, createObject);
 PHP_METHOD(JSContext, setOptions);
 PHP_METHOD(JSContext, toggleOptions);
 PHP_METHOD(JSContext, getOptions);

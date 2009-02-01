@@ -27,6 +27,7 @@ ZEND_GET_MODULE(spidermonkey)
 
 static function_entry php_spidermonkey_jsr_functions[] = {
     PHP_ME(JSRuntime, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+    PHP_ME(JSRuntime, createContext, NULL, ZEND_ACC_PUBLIC)
     { NULL, NULL, NULL }
 };
 
@@ -96,6 +97,7 @@ static
 static function_entry php_spidermonkey_jsc_functions[] = {
     PHP_ME(JSContext, __construct, php_spidermonkey_jsc_arginfo, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
     PHP_ME(JSContext, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
+    PHP_ME(JSContext, createObject, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(JSContext, setOptions, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(JSContext, toggleOptions, NULL, ZEND_ACC_PUBLIC)
     PHP_ME(JSContext, getOptions, NULL, ZEND_ACC_PUBLIC)
