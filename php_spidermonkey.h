@@ -65,6 +65,7 @@ PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);
 PHP_MINFO_FUNCTION(spidermonkey);
 PHP_METHOD(JSRuntime, __construct);
+PHP_METHOD(JSRuntime, createContext);
 PHP_METHOD(JSContext, __construct);
 PHP_METHOD(JSContext, __destruct);
 PHP_METHOD(JSContext, setOptions);

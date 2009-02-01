@@ -13,3 +13,9 @@ PHP_METHOD(JSRuntime, __construct)
 //    return SUCCESS;
 }
 
+PHP_METHOD(JSRuntime, createContext)
+{
+    // do something
+
+}
+

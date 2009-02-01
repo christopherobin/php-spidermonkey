@@ -280,6 +280,7 @@ PHP_MINFO_FUNCTION(spidermonkey)
     php_info_print_table_start();
     php_info_print_table_row(2, PHP_SPIDERMONKEY_MINFO_NAME, "enabled");
     php_info_print_table_row(2, "Version", PHP_SPIDERMONKEY_EXTVER);
-    php_info_print_table_row(2, "LibJS Version", JS_VersionToString(JS_VERSION));
+    //php_info_print_table_row(2, "LibJS Version", JS_VersionToString(JS_VERSION));
+    php_info_print_table_row(2, "LibJS Version", JS_GetImplementationVersion());
     php_info_print_table_end();
 }
