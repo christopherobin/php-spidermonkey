@@ -57,6 +57,7 @@ PHP_METHOD(JSRuntime, createContext)
 	        if (retval_ptr) {
 		        zval_ptr_dtor(&retval_ptr);
 	        }
+	        zval_ptr_dtor(&this);
 	        zend_error(E_ERROR, "Invocation of JSContext's constructor failed", php_spidermonkey_jsc_entry->name);
 	        RETURN_NULL();
         }
@@ -65,6 +66,8 @@ PHP_METHOD(JSRuntime, createContext)
 	        zval_ptr_dtor(&retval_ptr);
         }
     }
+    
+    zval_ptr_dtor(&this);
 }
 /* }}} */
 

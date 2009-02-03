@@ -60,6 +60,8 @@ extern zend_class_entry *php_spidermonkey_jsr_entry;
 extern zend_class_entry *php_spidermonkey_jsc_entry;
 extern zend_class_entry *php_spidermonkey_jso_entry;
 
+zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval);
+
 // functions
 PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);

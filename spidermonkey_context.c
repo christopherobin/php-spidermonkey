@@ -135,6 +135,7 @@ PHP_METHOD(JSContext, createObject)
 	        if (retval_ptr) {
 		        zval_ptr_dtor(&retval_ptr);
 	        }
+	        zval_ptr_dtor(&this);
 	        zend_error(E_ERROR, "Invocation of JSObject's constructor failed", php_spidermonkey_jso_entry->name);
 	        RETURN_NULL();
         }
@@ -143,6 +144,8 @@ PHP_METHOD(JSContext, createObject)
 	        zval_ptr_dtor(&retval_ptr);
         }
     }
+    
+    zval_ptr_dtor(&this);
 }
 /* }}} */
 

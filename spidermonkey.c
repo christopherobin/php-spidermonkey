@@ -286,3 +286,90 @@ PHP_MINFO_FUNCTION(spidermonkey)
     php_info_print_table_row(2, "LibJS Version", JS_GetImplementationVersion());
     php_info_print_table_end();
 }
+
+zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
+{
+    jsval   rval;
+//    zval    *return_value;
+
+    memcpy(&rval, jval, sizeof(jsval));
+
+    if (JSVAL_IS_NUMBER(rval) || JSVAL_IS_DOUBLE(rval))
+    {
+        jsdouble d;
+        if (JS_ValueToNumber(ctx, rval, &d) == JS_TRUE)
+        {
+            RETVAL_DOUBLE(d);
+        }
+        else
+            RETVAL_FALSE;
+    }
+    else if (JSVAL_IS_INT(rval))
+    {
+        int d;
+        d = JSVAL_TO_INT(rval);
+        RETVAL_LONG(d);
+    }
+    else if (JSVAL_IS_STRING(rval))
+    {
+        JSString *str;
+        str = JS_ValueToString(ctx, rval);
+        if (str != NULL)
+        {
+            char *txt = JS_GetStringBytes(str);
+            RETVAL_STRING(txt, strlen(txt));
+        }
+        else
+        {
+            RETVAL_FALSE;
+        }
+    }
+    else if (JSVAL_IS_BOOLEAN(rval))
+    {
+        if (rval == JSVAL_TRUE)
+        {
+            RETVAL_TRUE;
+        }
+        else
+        {
+            RETVAL_FALSE;
+        }
+    }
+    else if (JSVAL_IS_OBJECT(rval))
+    {
+        JSIdArray   *it;
+        JSObject    **obj;
+        jsid        *idp;
+        int         i;
+
+        // create stdClass
+        object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
+
+        JS_ValueToObject(ctx, *rval, 
+
+        // then iterate on each property
+        it = JS_Enumerate(ctx, rval);
+
+        for (i = 0; i < it->length; i++)
+        {
+            //php_printf("hello\n");
+            jsval val;
+            if (JS_IdToValue(ctx, it->vector[i], &val) == JS_TRUE)
+            {
+                jsdouble d;
+                JS_ValueToNumber(ctx, val, &d);
+                php_printf("val: %d\n", d);
+            }
+        }
+
+        JS_DestroyIdArray(ctx, it);
+    }
+    else if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
+    {
+        RETVAL_NULL();
+    }
+    else
+        RETVAL_FALSE;
+
+    return return_value;
+}
