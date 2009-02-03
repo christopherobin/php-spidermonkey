@@ -335,7 +335,7 @@ zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
             RETVAL_FALSE;
         }
     }
-    else if (JSVAL_IS_OBJECT(rval))
+/*    else if (JSVAL_IS_OBJECT(rval))
     {
         JSIdArray   *it;
         JSObject    **obj;
@@ -363,7 +363,7 @@ zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
         }
 
         JS_DestroyIdArray(ctx, it);
-    }
+    }*/
     else if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
     {
         RETVAL_NULL();
