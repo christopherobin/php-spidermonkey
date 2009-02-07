@@ -289,7 +289,8 @@ PHP_METHOD(JSContext, getVersion)
    Return the version name base on his number*/
 PHP_METHOD(JSContext, getVersionString)
 {
-	char *version_str;
+	const char *version_str;
+	int l;
 	long version;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
@@ -298,8 +299,9 @@ PHP_METHOD(JSContext, getVersionString)
 	}
 
 	version_str = JS_VersionToString(version);
+	l = strlen(version_str);
 
-	RETVAL_STRING(version_str, strlen(version_str));
+	RETVAL_STRINGL(estrndup(version_str, l), l, 0);
 }
 /* }}} */
 
