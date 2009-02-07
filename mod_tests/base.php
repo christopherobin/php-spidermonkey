@@ -11,8 +11,10 @@ MyConcat("hello", "world")
 SCR;
 
 $a = new JSRuntime();
-$b = new JSContext($a);
-$c = new JSObject($b);
+/* $b = new JSContext($a); */
+$b = $a->createContext();
+/* $c = new JSObject($b); */
+$c = $b->createObject();
 echo "MyMath.hyp(7, 15):\n";
 var_dump($c->evaluateScript($script1));
 echo "MyConcat(\"hello\", \"world\"):\n";

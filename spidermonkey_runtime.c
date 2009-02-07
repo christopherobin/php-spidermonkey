@@ -9,8 +9,8 @@ zend_class_entry *php_spidermonkey_jsr_entry;
 
 PHP_METHOD(JSRuntime, __construct)
 {
-    // maybe we should add an array containing options ?
-//    return SUCCESS;
+    /*  maybe we should add an array containing options ? */
+/*     return SUCCESS; */
 }
 
 /* {{{ proto public JSContext JSRuntime::createContext()
@@ -33,7 +33,7 @@ PHP_METHOD(JSRuntime, createContext)
 
     params[0] = &this;
 
-    // init object
+    /*  init object */
     object_init_ex(return_value, php_spidermonkey_jsc_entry);
 
     if (php_spidermonkey_jsc_entry->constructor)
@@ -71,3 +71,11 @@ PHP_METHOD(JSRuntime, createContext)
 }
 /* }}} */
 
+/*
+ * Local Variables:
+ * c-basic-offset: 4
+ * tab-width: 4
+ * End:
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
+ */

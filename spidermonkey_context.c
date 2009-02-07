@@ -3,11 +3,14 @@
 static int le_jscontext_descriptor;
 
 /**
+ * {{{
  * Those methods are directly available to the javascript
  * allowing extended functionnality and communication with
- * PHP
+ * PHP. You need to declare them in the global_functions
+ * struct in JSContext's constructor
  */
 JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+/* }}} */
 
 /**
  * JSContext embedding
@@ -33,18 +36,20 @@ PHP_METHOD(JSContext, __construct)
 	php_jscontext_object *intern_ct;
 	zval *z_rt;
 
+	/* parse parameters, this function is designed to receive a JSRuntime only */
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
 						 "O", &z_rt, php_spidermonkey_jsr_entry) == FAILURE) {
    		zend_error(E_ERROR, "Missing argument JSRuntime", php_spidermonkey_jsc_entry->name);
 		RETURN_NULL();
 	}
 
+	/* retrieve objects from object store */
 	intern_rt = (php_jsruntime_object *) zend_object_store_get_object(z_rt TSRMLS_CC);
 	intern_ct = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
 	intern_ct->rt = intern_rt;
+	/* create a new context */
 	intern_ct->ct = JS_NewContext(intern_rt->rt, 8092);
-
 
 	/* The script_class is a global object used by PHP to offer methods */
 	intern_ct->script_class.name			= "script";
@@ -96,8 +101,12 @@ PHP_METHOD(JSContext, __destruct)
 {
 	php_jscontext_object *intern;
 
+	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
+	/* if a context is found ( which should be the case )
+	 * destroy it
+	 */
 	if (intern->ct != (JSContext*)NULL)
 		JS_DestroyContext(intern->ct);
 
@@ -114,7 +123,9 @@ PHP_METHOD(JSContext, createObject)
 	zend_fcall_info_cache fcc;
 	zval *this;
 	zval **params[1];
-	
+
+	/* "this" is gonna contain a reference to our class, we need
+	 * to build a zval, and set the handle to our object */
 	MAKE_STD_ZVAL(this);
 	this->type = IS_OBJECT;
 	this->is_ref = 1;
@@ -122,6 +133,7 @@ PHP_METHOD(JSContext, createObject)
 	this->value.obj.handlers = (getThis())->value.obj.handlers;
 	zval_copy_ctor(this);
 
+	/* Then we set the first param to be this zval */
 	params[0] = &this;
 
 	/* init object */
@@ -129,6 +141,7 @@ PHP_METHOD(JSContext, createObject)
 
 	if (php_spidermonkey_jso_entry->constructor)
 	{
+		/* first the function call info struct */
 		fci.size = sizeof(fci);
 		fci.function_table = EG(function_table);
 		fci.function_name = NULL;
@@ -139,11 +152,13 @@ PHP_METHOD(JSContext, createObject)
 		fci.params = params;
 		fci.no_separation = 1;
 
+		/* then the cache */
 		fcc.initialized = 1;
 		fcc.function_handler = php_spidermonkey_jso_entry->constructor;
 		fcc.calling_scope = EG(scope);
 		fcc.object_pp = &return_value;
 
+		/* call JSObject's constructor */
 		if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE) {
 			if (retval_ptr) {
 				zval_ptr_dtor(&retval_ptr);
@@ -163,6 +178,8 @@ PHP_METHOD(JSContext, createObject)
 }
 /* }}} */
 
+/* {{{ proto public mixed JSContext::setOptions(long $options)
+   Set options for the current context, $options is a bitfield made of JSOPTION_ consts */
 PHP_METHOD(JSContext, setOptions)
 {
 	php_jscontext_object	*intern;
@@ -186,7 +203,11 @@ PHP_METHOD(JSContext, setOptions)
 		RETURN_FALSE;
 	}
 }
+/* }}} */
 
+/* {{{ proto public mixed JSContext::toggleOptions(long $options)
+   Just toggle a set of options, same as doing setOptions 
+   with JSContext::getOptions() ^ $options */
 PHP_METHOD(JSContext, toggleOptions)
 {
 	php_jscontext_object	*intern;
@@ -210,7 +231,10 @@ PHP_METHOD(JSContext, toggleOptions)
 		RETURN_FALSE;
 	}
 }
+/* }}} */
 
+/* {{{ proto public long JSContext::getOptions()
+   Return context's options */
 PHP_METHOD(JSContext, getOptions)
 {
 	php_jscontext_object	*intern;
@@ -219,7 +243,11 @@ PHP_METHOD(JSContext, getOptions)
 
 	RETVAL_LONG(JS_GetOptions(intern->ct));
 }
+/* }}} */
 
+/* {{{ proto public mixed JSContext::setVersion(long $version)
+   Set Javascript version for this context, supported versions are
+   dependant of the current spidermonkey library */
 PHP_METHOD(JSContext, setVersion)
 {
 	php_jscontext_object	*intern;
@@ -243,7 +271,10 @@ PHP_METHOD(JSContext, setVersion)
 		RETURN_FALSE;
 	}
 }
+/* }}} */
 
+/* {{{ proto public long JSContext::getVersion(long $options)
+   Return current version */
 PHP_METHOD(JSContext, getVersion)
 {
 	php_jscontext_object	*intern;
@@ -252,7 +283,10 @@ PHP_METHOD(JSContext, getVersion)
 
 	RETVAL_LONG(JS_GetVersion(intern->ct));
 }
+/* }}} */
 
+/* {{{ proto public string JSContext::getVersionString(long $version)
+   Return the version name base on his number*/
 PHP_METHOD(JSContext, getVersionString)
 {
 	char *version_str;
@@ -267,6 +301,7 @@ PHP_METHOD(JSContext, getVersionString)
 
 	RETVAL_STRING(version_str, strlen(version_str));
 }
+/* }}} */
 
 /*******************************************
 * Internal function for the script JS class
@@ -282,5 +317,11 @@ JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	return JSVAL_TRUE;
 }
 
-
-
+/*
+ * Local Variables:
+ * c-basic-offset: 4
+ * tab-width: 4
+ * End:
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
+ */
