@@ -53,7 +53,8 @@ static void php_jsruntime_object_free_storage(void *object TSRMLS_DC)
 
 /* called at object construct, we create the structure containing all data
  * needed by spidermonkey */
-static zend_object_value php_jsruntime_object_new_ex(zend_class_entry *class_type, php_jsruntime_object **ptr TSRMLS_DC)
+//static zend_object_value php_jsruntime_object_new_ex(zend_class_entry *class_type, php_jsruntime_object **ptr TSRMLS_DC)
+ZEND_NEW_OBJ(php_jsruntime_object_new_ex)
 {
 	zval *tmp;
 	zend_object_value retval;
@@ -188,7 +189,8 @@ static void php_jsobject_object_free_storage(void *object TSRMLS_DC)
 	efree(intern);
 }
 
-static zend_object_value php_jsobject_object_new_ex(zend_class_entry *class_type, php_jsobject_object **ptr TSRMLS_DC)
+//static zend_object_value php_jsobject_object_new_ex(zend_class_entry *class_type, php_jsobject_object **ptr TSRMLS_DC)
+ZEND_NEW_OBJ(php_jsobject_object_new_ex)
 {
 	zval *tmp;
 	zend_object_value retval;
@@ -226,14 +228,14 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	/*  CONSTANTS */
 	
 	/*  OPTIONS */
-	REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",				   JSOPTION_ATLINE,					CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",			 JSOPTION_COMPILE_N_GO,			  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_DONT_REPORT_UNCAUGHT",	 JSOPTION_DONT_REPORT_UNCAUGHT,	  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_NATIVE_BRANCH_CALLBACK",   JSOPTION_NATIVE_BRANCH_CALLBACK,	CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_STRICT",				   JSOPTION_STRICT,					CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_VAROBJFIX",				JSOPTION_VAROBJFIX,				 CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_WERROR",				   JSOPTION_WERROR,					CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_XML",					  JSOPTION_XML,					   CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",				 JSOPTION_ATLINE,				 CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",			 JSOPTION_COMPILE_N_GO,			 CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_DONT_REPORT_UNCAUGHT",	 JSOPTION_DONT_REPORT_UNCAUGHT,	 CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_NATIVE_BRANCH_CALLBACK",JSOPTION_NATIVE_BRANCH_CALLBACK,CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_STRICT",				 JSOPTION_STRICT,				 CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_VAROBJFIX",			 JSOPTION_VAROBJFIX,			 CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_WERROR",			 	 JSOPTION_WERROR,				 CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("JSOPTION_XML",					 JSOPTION_XML,					 CONST_CS | CONST_PERSISTENT);
 
 	/*  VERSIONS */
 	REGISTER_LONG_CONSTANT("JSVERSION_1_0",	 JSVERSION_1_0,	  CONST_CS | CONST_PERSISTENT);
@@ -249,6 +251,7 @@ PHP_MINIT_FUNCTION(spidermonkey)
 
 	/*  CLASS INIT */
 
+	/* here we set handlers to zero, meaning that we have no handlers set */
 	memcpy(&jsruntime_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	memcpy(&jsobject_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
@@ -257,7 +260,9 @@ PHP_MINIT_FUNCTION(spidermonkey)
 
 	/*  init JSRuntime class */
 	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSR_NAME, php_spidermonkey_jsr_functions);
+	/* this function will be called when the object is created by php */
 	ce.create_object = php_jsruntime_object_new;
+	/* register class in PHP */
 	php_spidermonkey_jsr_entry = zend_register_internal_class(&ce TSRMLS_CC);
 
 	/*  init JSContext class */
@@ -294,9 +299,8 @@ PHP_MINFO_FUNCTION(spidermonkey)
 zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 {
 	jsval   rval;
-/*	 zval	*return_value; */
 
-	memcpy(&rval, jval, sizeof(jsval));
+	ememcpy(&rval, jval, sizeof(jsval));
 
 	/* if it's a number or double, convert to double */
 	if (JSVAL_IS_NUMBER(rval) || JSVAL_IS_DOUBLE(rval))
