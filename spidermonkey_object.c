@@ -14,29 +14,8 @@ zend_class_entry *php_spidermonkey_jso_entry;
    JSContext::createObject() instead  */
 PHP_METHOD(JSObject, __construct)
 {
-	php_jscontext_object	*intern_ct;
-	php_jsobject_object	 *intern_ot;
-	zval *z_rt;
-
-	/* Parse the parameter list to retrieve the JSContext object */
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						 "O", &z_rt, php_spidermonkey_jsc_entry) == FAILURE) {
-		RETURN_NULL();
-	}
-
-	intern_ct = (php_jscontext_object *) zend_object_store_get_object(z_rt TSRMLS_CC);
-	intern_ot = (php_jsobject_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-
-	/* Other thingy */
-	intern_ot->ct = intern_ct;
-	intern_ot->obj = JS_NewObject(intern_ct->ct, &intern_ct->script_class, NULL, NULL);
-
-	/* register globals functions */
-	JS_DefineFunctions(intern_ct->ct, intern_ot->obj, intern_ct->global_functions);
-
-	JS_InitStandardClasses(intern_ct->ct, intern_ot->obj);
-
-	return;
+	/* prevent creating this object */
+	zend_throw_exception(zend_exception_get_default(TSRMLS_C), "JSObject can't be instancied directly, please call JSContext::createObject", 0 TSRMLS_CC);
 }
 /* }}} */
 
@@ -47,6 +26,10 @@ PHP_METHOD(JSObject, __destruct)
 	php_jsobject_object *intern_ot;
 
 	intern_ot = (php_jsobject_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	ZVAL_DELREF(intern_ot->ct_z);
+
+	zval_ptr_dtor(&intern_ot->ct_z);
 
 	/* No need todestroy anything, the garbage collector will do it */
 	intern_ot->obj = NULL;
@@ -73,7 +56,7 @@ PHP_METHOD(JSObject, evaluateScript)
 	}
 
 	intern = (php_jsobject_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-
+	
 	if (JS_EvaluateScript(intern->ct->ct, intern->obj, script, script_len, "spidermonkey_object.c", 60, &rval) == JS_TRUE)
 	{
 		/* The script evaluated fine, convert the return value to PHP */

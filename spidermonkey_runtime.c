@@ -17,57 +17,69 @@ PHP_METHOD(JSRuntime, __construct)
    Returns an instance of JSContext using this runtime */
 PHP_METHOD(JSRuntime, createContext)
 {
-    zval *retval_ptr = NULL;
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcc;
-	zval *this;
+	php_jsruntime_object *intern_rt;
+	php_jscontext_object *intern_ct;
 
-    zval **params[1];
-    
-    MAKE_STD_ZVAL(this);
-	this->type = IS_OBJECT;
-	this->is_ref = 1;
-	this->value.obj.handle = (getThis())->value.obj.handle;
-	this->value.obj.handlers = (getThis())->value.obj.handlers;
-	zval_copy_ctor(this);
+	/* init JSContext object */
+	object_init_ex(return_value, php_spidermonkey_jsc_entry);
 
-    params[0] = &this;
+	/* retrieve objects from object store */
+	intern_rt = (php_jsruntime_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern_ct = (php_jscontext_object *) zend_object_store_get_object(return_value TSRMLS_CC);
 
-    /*  init object */
-    object_init_ex(return_value, php_spidermonkey_jsc_entry);
+	/* store this and increment ref count */
+	intern_ct->rt_z = getThis();
+	ZVAL_ADDREF(intern_ct->rt_z);
 
-    if (php_spidermonkey_jsc_entry->constructor)
-    {
-        fci.size = sizeof(fci);
-        fci.function_table = EG(function_table);
-        fci.function_name = NULL;
-        fci.symbol_table = NULL;
-        fci.object_pp = &return_value;
-        fci.retval_ptr_ptr = &retval_ptr;
-        fci.param_count = 1;
-        fci.params = params;
-        fci.no_separation = 1;
+	/* set count of exported function to 0 */
+	intern_ct->n_exported_functions = 0;
+	intern_ct->fcis					= NULL;
+	intern_ct->fcis_cache			= NULL;
 
-        fcc.initialized = 1;
-        fcc.function_handler = php_spidermonkey_jsc_entry->constructor;
-        fcc.calling_scope = EG(scope);
-        fcc.object_pp = &return_value;
+	intern_ct->rt = intern_rt;
+	/* create a new context */
+	intern_ct->ct = JS_NewContext(intern_rt->rt, 8092);
 
-        if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE) {
-	        if (retval_ptr) {
-		        zval_ptr_dtor(&retval_ptr);
-	        }
-	        zval_ptr_dtor(&this);
-	        zend_error(E_ERROR, "Invocation of JSContext's constructor failed", php_spidermonkey_jsc_entry->name);
-	        RETURN_NULL();
-        }
+	/* The script_class is a global object used by PHP to offer methods */
+	intern_ct->script_class.name			= "script";
+	intern_ct->script_class.flags		   = JSCLASS_GLOBAL_FLAGS;
 
-        if (retval_ptr) {
-	        zval_ptr_dtor(&retval_ptr);
-        }
-    }
-    
-    zval_ptr_dtor(&this);
+	/* Mandatory non-null function pointer members. */
+	intern_ct->script_class.addProperty	 = JS_PropertyStub;
+	intern_ct->script_class.delProperty	 = JS_PropertyStub;
+	intern_ct->script_class.getProperty	 = JS_PropertyStub;
+	intern_ct->script_class.setProperty	 = JS_PropertyStub;
+	intern_ct->script_class.enumerate	   = JS_EnumerateStub;
+	intern_ct->script_class.resolve		 = JS_ResolveStub;
+	intern_ct->script_class.convert		 = JS_ConvertStub;
+	intern_ct->script_class.finalize		= JS_FinalizeStub;
+
+	/* Optionally non-null members start here. */
+	intern_ct->script_class.getObjectOps	= 0;
+	intern_ct->script_class.checkAccess		= 0;
+	//intern_ct->script_class.call			= generic_call;
+	intern_ct->script_class.call			= 0;
+	intern_ct->script_class.construct		= 0;
+	intern_ct->script_class.xdrObject		= 0;
+	intern_ct->script_class.hasInstance		= 0;
+	intern_ct->script_class.mark			= 0;
+	intern_ct->script_class.reserveSlots	= 0;
+
+	/* register global functions */
+	intern_ct->global_functions[0].name	 = "write";
+	intern_ct->global_functions[0].call	 = script_write;
+	intern_ct->global_functions[0].nargs	= 1;
+	intern_ct->global_functions[0].flags	= 0;
+	intern_ct->global_functions[0].extra	= 0;
+
+	/* last element of the list need to be zeroed */
+	memset(&intern_ct->global_functions[1], 0, sizeof(JSFunctionSpec));
+
+	/* says that our script runs in global scope */
+	JS_SetOptions(intern_ct->ct, JSOPTION_VAROBJFIX);
+
+	/* set the error callback */
+	JS_SetErrorReporter(intern_ct->ct, reportError);
 }
 /* }}} */
 

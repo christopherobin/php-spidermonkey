@@ -9,7 +9,7 @@ static int le_jscontext_descriptor;
  * PHP. You need to declare them in the global_functions
  * struct in JSContext's constructor
  */
-JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+//JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 /* }}} */
 
 /**
@@ -17,81 +17,13 @@ JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
  */
 zend_class_entry *php_spidermonkey_jsc_entry;
 
-/* The error reporter callback. */
-/* TODO: change that to an exception */
-void reportError(JSContext *cx, const char *message, JSErrorReport *report)
-{
-	php_printf("%s:%u:%s\n",
-			report->filename ? report->filename : "<no filename>",
-			(unsigned int) report->lineno,
-			message);
-}
-
 /* {{{ proto public JSContext::__construct(JSRuntime $runtime)
    JSContext's constructor, expect a JSRuntime, you should use
    JSRuntime::createContext */
 PHP_METHOD(JSContext, __construct)
 {
-	php_jsruntime_object *intern_rt;
-	php_jscontext_object *intern_ct;
-	zval *z_rt;
-
-	/* parse parameters, this function is designed to receive a JSRuntime only */
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						 "O", &z_rt, php_spidermonkey_jsr_entry) == FAILURE) {
-   		zend_error(E_ERROR, "Missing argument JSRuntime", php_spidermonkey_jsc_entry->name);
-		RETURN_NULL();
-	}
-
-	/* retrieve objects from object store */
-	intern_rt = (php_jsruntime_object *) zend_object_store_get_object(z_rt TSRMLS_CC);
-	intern_ct = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-
-	intern_ct->rt = intern_rt;
-	/* create a new context */
-	intern_ct->ct = JS_NewContext(intern_rt->rt, 8092);
-
-	/* The script_class is a global object used by PHP to offer methods */
-	intern_ct->script_class.name			= "script";
-	intern_ct->script_class.flags		   = JSCLASS_GLOBAL_FLAGS;
-
-	/* Mandatory non-null function pointer members. */
-	intern_ct->script_class.addProperty	 = JS_PropertyStub;
-	intern_ct->script_class.delProperty	 = JS_PropertyStub;
-	intern_ct->script_class.getProperty	 = JS_PropertyStub;
-	intern_ct->script_class.setProperty	 = JS_PropertyStub;
-	intern_ct->script_class.enumerate	   = JS_EnumerateStub;
-	intern_ct->script_class.resolve		 = JS_ResolveStub;
-	intern_ct->script_class.convert		 = JS_ConvertStub;
-	intern_ct->script_class.finalize		= JS_FinalizeStub;
-
-	/* Optionally non-null members start here. */
-	intern_ct->script_class.getObjectOps	= 0;
-	intern_ct->script_class.checkAccess	 = 0;
-	intern_ct->script_class.call			= 0;
-	intern_ct->script_class.construct	   = 0;
-	intern_ct->script_class.xdrObject	   = 0;
-	intern_ct->script_class.hasInstance	 = 0;
-	intern_ct->script_class.mark			= 0;
-	intern_ct->script_class.reserveSlots	= 0;
-
-	/* register global functions */
-	intern_ct->global_functions[0].name	 = "write";
-	intern_ct->global_functions[0].call	 = script_write;
-	intern_ct->global_functions[0].nargs	= 1;
-	intern_ct->global_functions[0].flags	= 0;
-	intern_ct->global_functions[0].extra	= 0;
-
-	/* last element of the list need to be zeroed */
-	memset(&intern_ct->global_functions[1], 0, sizeof(JSFunctionSpec));
-
-	/* says that our script runs in global scope */
-	JS_SetOptions(intern_ct->ct, JSOPTION_VAROBJFIX);
-
-	/* set the error callback */
-	JS_SetErrorReporter(intern_ct->ct, reportError);
-
-	return;
+	/* prevent creating this object */
+	zend_throw_exception(zend_exception_get_default(TSRMLS_C), "JSContext can't be instancied directly, please call JSRuntime::createContext", 0 TSRMLS_CC);
 }
 /* }}} */
 
@@ -104,6 +36,8 @@ PHP_METHOD(JSContext, __destruct)
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
+	ZVAL_DELREF(intern->rt_z);
+
 	/* if a context is found ( which should be the case )
 	 * destroy it
 	 */
@@ -114,67 +48,68 @@ PHP_METHOD(JSContext, __destruct)
 }
 /* }}} */
 
+/* {{{ proto public bool JSContext::registerFunction(string name, callback function)
+   Register a PHP function in a Javascript context allowing a script to call it*/
+PHP_METHOD(JSContext, registerFunction)
+{
+	char					*name;
+	int						name_len;
+	zend_fcall_info			fci;
+	zend_fcall_info_cache	fci_cache;
+	php_jscontext_object	*intern;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &name, &name_len, &fci, &fci_cache) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	/* retrieve this class from the store */
+	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	intern->n_exported_functions++;
+
+	if (intern->fcis)
+	{
+		intern->fcis		= (zend_fcall_info*)erealloc(intern->fcis, intern->n_exported_functions*sizeof(zend_fcall_info));
+		intern->fcis_cache  = (zend_fcall_info_cache*)erealloc(intern->fcis_cache, intern->n_exported_functions*sizeof(zend_fcall_info_cache));
+	}
+	else
+	{
+		intern->fcis		= (zend_fcall_info*)emalloc(intern->n_exported_functions*sizeof(zend_fcall_info));
+		intern->fcis_cache  = (zend_fcall_info_cache*)emalloc(intern->n_exported_functions*sizeof(zend_fcall_info_cache));
+	}
+
+	memcpy(&intern->fcis[intern->n_exported_functions-1], &fci, sizeof(fci));
+	memcpy(&intern->fcis_cache[intern->n_exported_functions-1], &fci_cache, sizeof(fci_cache));
+}
+/* }}} */
+
 /* {{{ proto public JSObject JSContext::createObject()
    Returns an instance of JSObject using this context */
 PHP_METHOD(JSContext, createObject)
 {
-	zval *retval_ptr = NULL;
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcc;
-	zval *this;
-	zval **params[1];
+	php_jscontext_object	*intern_ct;
+	php_jsobject_object		*intern_ot;
 
-	/* "this" is gonna contain a reference to our class, we need
-	 * to build a zval, and set the handle to our object */
-	MAKE_STD_ZVAL(this);
-	this->type = IS_OBJECT;
-	this->is_ref = 1;
-	this->value.obj.handle = (getThis())->value.obj.handle;
-	this->value.obj.handlers = (getThis())->value.obj.handlers;
-	zval_copy_ctor(this);
-
-	/* Then we set the first param to be this zval */
-	params[0] = &this;
-
-	/* init object */
+	/* first create JSObject item */
 	object_init_ex(return_value, php_spidermonkey_jso_entry);
 
-	if (php_spidermonkey_jso_entry->constructor)
-	{
-		/* first the function call info struct */
-		fci.size = sizeof(fci);
-		fci.function_table = EG(function_table);
-		fci.function_name = NULL;
-		fci.symbol_table = NULL;
-		fci.object_pp = &return_value;
-		fci.retval_ptr_ptr = &retval_ptr;
-		fci.param_count = 1;
-		fci.params = params;
-		fci.no_separation = 1;
+	/* retrieve objects from store */
+	intern_ct = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern_ot = (php_jsobject_object *) zend_object_store_get_object(return_value TSRMLS_CC);
 
-		/* then the cache */
-		fcc.initialized = 1;
-		fcc.function_handler = php_spidermonkey_jso_entry->constructor;
-		fcc.calling_scope = EG(scope);
-		fcc.object_pp = &return_value;
+	/* store this and increment refcount */
+	intern_ot->ct_z = getThis();
+	ZVAL_ADDREF(intern_ot->ct_z);
 
-		/* call JSObject's constructor */
-		if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE) {
-			if (retval_ptr) {
-				zval_ptr_dtor(&retval_ptr);
-			}
-			zval_ptr_dtor(&this);
-			/* this should *never* happen ! */
-			zend_error(E_ERROR, "Invocation of JSObject's constructor failed", php_spidermonkey_jso_entry->name);
-			RETURN_NULL();
-		}
+	/* store store object for fast retrieval */
+	intern_ot->ct = intern_ct;
+	intern_ot->obj = JS_NewObject(intern_ct->ct, &intern_ct->script_class, NULL, NULL);
 
-		if (retval_ptr) {
-			zval_ptr_dtor(&retval_ptr);
-		}
-	}
-	
-	zval_ptr_dtor(&this);
+	/* register globals functions */
+	JS_DefineFunctions(intern_ct->ct, intern_ot->obj, intern_ct->global_functions);
+
+	/* initialize standard JS classes */
+	JS_InitStandardClasses(intern_ct->ct, intern_ot->obj);
 }
 /* }}} */
 
@@ -309,7 +244,8 @@ PHP_METHOD(JSContext, getVersionString)
 * Internal function for the script JS class
 *******************************************/
 
-JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+
+/*JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
 	JSString *str;
 	str = JS_ValueToString(cx, argv[0]);
@@ -317,7 +253,7 @@ JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	php_printf("%s", txt);
 
 	return JSVAL_TRUE;
-}
+}*/
 
 /*
  * Local Variables:

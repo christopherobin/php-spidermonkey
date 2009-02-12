@@ -46,15 +46,20 @@ typedef struct _php_jsruntime_object  {
 /* Structure for JSContext object. */
 typedef struct _php_jscontext_object  {
 	zend_object				zo;
+	zval					*rt_z;
 	php_jsruntime_object	*rt;
 	JSContext				*ct;
 	JSClass					script_class;
 	JSFunctionSpec			global_functions[2];
+	zend_fcall_info			*fcis;
+	zend_fcall_info_cache	*fcis_cache;
+	int						n_exported_functions;
 } php_jscontext_object;
 
 /* Structure for JSObject object. */
 typedef struct _php_jsobject_object  {
 	zend_object				zo;
+	zval					*ct_z;
 	php_jscontext_object	*ct;
 	JSObject				*obj;
 } php_jsobject_object;
@@ -65,7 +70,7 @@ extern zend_class_entry *php_spidermonkey_jso_entry;
 
 /* this method defined in spidermonkey.c allow us to convert a jsval
  * to a zval for PHP use */
-zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval);
+void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval);
 
 /* init/shutdown functions */
 PHP_MINIT_FUNCTION(spidermonkey);
@@ -78,6 +83,7 @@ PHP_METHOD(JSRuntime,   createContext);
 PHP_METHOD(JSContext,   __construct);
 PHP_METHOD(JSContext,   __destruct);
 PHP_METHOD(JSContext,   createObject);
+PHP_METHOD(JSContext,   registerFunction);
 PHP_METHOD(JSContext,   setOptions);
 PHP_METHOD(JSContext,   toggleOptions);
 PHP_METHOD(JSContext,   getOptions);
@@ -88,6 +94,10 @@ PHP_METHOD(JSContext,   getVersionString);
 PHP_METHOD(JSObject,	__construct);
 PHP_METHOD(JSObject,	__destruct);
 PHP_METHOD(JSObject,	evaluateScript);
+
+/* Methods used/exported in JS */
+void reportError(JSContext *cx, const char *message, JSErrorReport *report);
+JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 
 /* Define the entry point symbol
  * Zend will use when loading this module

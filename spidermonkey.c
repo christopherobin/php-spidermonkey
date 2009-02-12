@@ -38,23 +38,18 @@ static void php_jsruntime_object_free_storage(void *object TSRMLS_DC)
 {
 	php_jsruntime_object *intern = (php_jsruntime_object *)object;
 
-	if (!intern) {
-		return;
-	}
-
 	/* there should always be a runtime there, so we free it */
 	if (intern->rt != (JSRuntime *)NULL) {
 		JS_DestroyRuntime(intern->rt);
 	}
 
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
-	efree(intern);
+	efree(object);
 }
 
 /* called at object construct, we create the structure containing all data
  * needed by spidermonkey */
-//static zend_object_value php_jsruntime_object_new_ex(zend_class_entry *class_type, php_jsruntime_object **ptr TSRMLS_DC)
-ZEND_NEW_OBJ(php_jsruntime_object_new_ex)
+static zend_object_value php_jsruntime_object_new_ex(zend_class_entry *class_type, php_jsruntime_object **ptr TSRMLS_DC)
 {
 	zval *tmp;
 	zend_object_value retval;
@@ -62,15 +57,14 @@ ZEND_NEW_OBJ(php_jsruntime_object_new_ex)
 
 	/* Allocate memory for it */
 	intern = (php_jsruntime_object *) emalloc(sizeof(php_jsruntime_object));
-	memset(&intern->zo, 0, sizeof(zend_object));
-	
-	if (ptr) {
+	memset(intern, 0, sizeof(php_jsruntime_object));
+
+	if (ptr)
+	{
 		*ptr = intern;
 	}
 
 	intern->rt = JS_NewRuntime(PHP_JSRUNTIME_GC_MEMORY_THRESHOLD);
-
-	/* ALLOC_HASHTABLE(intern->zo.properties); */
 
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
@@ -90,18 +84,11 @@ static zend_object_value php_jsruntime_object_new(zend_class_entry *class_type T
 * JSCONTEXT STATIC CODE
 ********************************/
 
-/*  js context contructor need 1 arg, a JSRuntime class */
-#if PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION < 3
-static
-#endif
-	ZEND_BEGIN_ARG_INFO(php_spidermonkey_jsc_arginfo, 0)
-		ZEND_ARG_OBJ_INFO(1, "obj", JSRuntime, 0)
-	ZEND_END_ARG_INFO()
-
 static function_entry php_spidermonkey_jsc_functions[] = {
-	PHP_ME(JSContext, __construct, php_spidermonkey_jsc_arginfo, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+	PHP_ME(JSContext, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(JSContext, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
 	PHP_ME(JSContext, createObject, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, setOptions, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, toggleOptions, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, getOptions, NULL, ZEND_ACC_PUBLIC)
@@ -117,16 +104,11 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 {
 	php_jscontext_object *intern = (php_jscontext_object *)object;
 
-	if (!intern) {
-		return;
-	}
-
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
-	efree(intern);
+	efree(object);
 }
 
-/*static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_type, php_jscontext_object **ptr TSRMLS_DC)*/
-ZEND_NEW_OBJ(php_jscontext_object_new_ex)
+static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_type, php_jscontext_object **ptr TSRMLS_DC)
 {
 	zval *tmp;
 	zend_object_value retval;
@@ -134,13 +116,12 @@ ZEND_NEW_OBJ(php_jscontext_object_new_ex)
 
 	/* Allocate memory for it */
 	intern = (php_jscontext_object *) emalloc(sizeof(php_jscontext_object));
-	memset(&intern->zo, 0, sizeof(zend_object));
-	
-	if (ptr) {
+	memset(intern, 0, sizeof(php_jscontext_object));
+
+	if (ptr)
+	{
 		*ptr = intern;
 	}
-
-	/* ALLOC_HASHTABLE(intern->zo.properties); */
 
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
@@ -160,16 +141,8 @@ static zend_object_value php_jscontext_object_new(zend_class_entry *class_type T
 * JSOBJECT STATIC CODE
 ********************************/
 
-/*  js context contructor need 1 arg, a JSContext class */
-#if PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION < 3
-static
-#endif
-	ZEND_BEGIN_ARG_INFO(php_spidermonkey_jso_arginfo, 0)
-		ZEND_ARG_OBJ_INFO(1, "obj", JSContext, 0)
-	ZEND_END_ARG_INFO()
-
 static function_entry php_spidermonkey_jso_functions[] = {
-	PHP_ME(JSObject, __construct, php_spidermonkey_jso_arginfo, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+	PHP_ME(JSObject, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(JSObject, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
 	PHP_ME(JSObject, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	{ NULL, NULL, NULL }
@@ -181,16 +154,11 @@ static void php_jsobject_object_free_storage(void *object TSRMLS_DC)
 {
 	php_jsobject_object *intern = (php_jsobject_object *)object;
 
-	if (!intern) {
-		return;
-	}
-
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
-	efree(intern);
+	efree(object);
 }
 
-//static zend_object_value php_jsobject_object_new_ex(zend_class_entry *class_type, php_jsobject_object **ptr TSRMLS_DC)
-ZEND_NEW_OBJ(php_jsobject_object_new_ex)
+static zend_object_value php_jsobject_object_new_ex(zend_class_entry *class_type, php_jsobject_object **ptr TSRMLS_DC)
 {
 	zval *tmp;
 	zend_object_value retval;
@@ -198,19 +166,19 @@ ZEND_NEW_OBJ(php_jsobject_object_new_ex)
 
 	/* Allocate memory for it */
 	intern = (php_jsobject_object *) emalloc(sizeof(php_jsobject_object));
-	memset(&intern->zo, 0, sizeof(zend_object));
-	
-	if (ptr) {
+	memset(intern, 0, sizeof(php_jsobject_object));
+
+	if (ptr)
+	{
 		*ptr = intern;
 	}
-
-	/* ALLOC_HASHTABLE(intern->zo.properties); */
 
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
 
 	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jsobject_object_free_storage, NULL TSRMLS_CC);
-	retval.handlers = (zend_object_handlers *) &jsobject_object_handlers;
+	retval.handlers = &jsobject_object_handlers;
+
 	return retval;
 }
 
@@ -296,11 +264,11 @@ PHP_MINFO_FUNCTION(spidermonkey)
 }
 
 /* convert a given jsval in a context to a zval, for PHP acces */
-zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
+void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 {
 	jsval   rval;
 
-	ememcpy(&rval, jval, sizeof(jsval));
+	memcpy(&rval, jval, sizeof(jsval));
 
 	/* if it's a number or double, convert to double */
 	if (JSVAL_IS_NUMBER(rval) || JSVAL_IS_DOUBLE(rval))
@@ -346,43 +314,59 @@ zval *jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 			RETVAL_FALSE;
 		}
 	}
-/*	else if (JSVAL_IS_OBJECT(rval))
+	else if (JSVAL_IS_OBJECT(rval))
 	{
 		JSIdArray   *it;
-		JSObject	**obj;
+		JSObject	*obj;
 		jsid		*idp;
 		int		 i;
 
-		*  create stdClass *
+		//  create stdClass
 		object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
 
-		JS_ValueToObject(ctx, *rval, 
+		JS_ValueToObject(ctx, rval, &obj);
 
-		*  then iterate on each property *
-		it = JS_Enumerate(ctx, rval);
+		//  then iterate on each property
+		it = JS_Enumerate(ctx, obj);
 
 		for (i = 0; i < it->length; i++)
 		{
-			* php_printf("hello\n"); *
 			jsval val;
-			if (JS_IdToValue(ctx, it->vector[i], &val) == JS_TRUE)
+			jsid id = it->vector[i];
+			if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
 			{
-				jsdouble d;
-				JS_ValueToNumber(ctx, val, &d);
-				php_printf("val: %d\n", d);
+				JSString *str;
+				jsval item_val;
+
+				str = JS_ValueToString(ctx, val);
+
+				if (js_GetProperty(ctx, obj, id, &item_val) == JS_TRUE)
+				{
+					zval *fval;
+					char *name;
+
+					/* Retrieve property name */
+					name = JS_GetStringBytes(str);
+
+					MAKE_STD_ZVAL(fval);
+					/* Call this function to convert a jsval to a zval */
+					jsval_to_zval(fval, ctx, &item_val);
+					/* Add property to our stdClass */
+					zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
+					/* Destroy pointer to zval */
+					zval_ptr_dtor(&fval);
+				}
 			}
 		}
 
 		JS_DestroyIdArray(ctx, it);
-	}*/
+	}
 	else if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
 	{
 		RETVAL_NULL();
 	}
 	else /* something is wrong */
 		RETVAL_FALSE;
-
-	return return_value;
 }
 
 /*
