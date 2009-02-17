@@ -61,6 +61,29 @@ PHP_METHOD(JSContext, registerFunction)
 }
 /* }}} */
 
+/* {{{ proto public bool JSContext::registerFunction(string name, callback function)
+   Register a PHP function in a Javascript context allowing a script to call it*/
+PHP_METHOD(JSContext, assign)
+{
+	char					*name;
+	int						name_len;
+	zval					*val;
+	php_jscontext_object	*intern;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &name, &name_len, &val) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	/* retrieve this class from the store */
+	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	jsval ival;
+	zval_to_jsval(val, intern->ct, &ival);
+
+	JS_SetProperty(intern->ct, intern->obj, name, &ival);
+}
+/* }}} */
+
 /* {{{ proto public mixed JSContext::evaluateScript(string $script)
    Evaluate script and return the last global object in scope to PHP.
    Objects are not returned for now. Any global variable declared in
@@ -236,7 +259,6 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	php_callback			*callback;
 	php_jscontext_object	*intern;
 	int						i;
-	jsval					jsret;
 
 	/* first retrieve function name */
 	func = JS_ValueToFunction(cx, argv[-2]);
@@ -266,7 +288,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	
 	zend_call_function(&callback->fci, &callback->fci_cache TSRMLS_CC);
 
-	zval_to_jsval(retval_ptr, cx, &jsret);
+	zval_to_jsval(retval_ptr, cx, rval);
 
 	/* call ended, clean */
 	for (i = 0; i < argc; i++)
@@ -284,11 +306,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	
 	efree(params);
 
-/*	str = JS_ValueToString(cx, argv[0]);
-	char *txt = JS_GetStringBytes(str);
-	php_printf("%s: %s\n", func_name, txt);*/
-
-	return jsret;
+	return JS_TRUE;
 }
 
 /*

@@ -2,7 +2,6 @@
 
 static int le_jsruntime_descriptor;
 static int le_jscontext_descriptor;
-static int le_jsobject_descriptor;
 
 zend_module_entry spidermonkey_module_entry = {
 	STANDARD_MODULE_HEADER,
@@ -89,6 +88,7 @@ static function_entry php_spidermonkey_jsc_functions[] = {
 	PHP_ME(JSContext, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
 	PHP_ME(JSContext, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(JSContext, assign, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, setOptions, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, toggleOptions, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, getOptions, NULL, ZEND_ACC_PUBLIC)
@@ -324,7 +324,75 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 /* convert a given jsval in a context to a zval, for PHP access */
 void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 {
-	*jval = JSVAL_VOID;
+	JSString	*jstr;
+	JSObject	*jobj;
+	HashTable   *ht;
+
+	switch(Z_TYPE_P(val))
+	{
+		case IS_DOUBLE:
+			JS_NewNumberValue(ctx, Z_DVAL_P(val), jval);
+			break;
+		case IS_LONG:
+			*jval = INT_TO_JSVAL(Z_LVAL_P(val));
+			break;
+		case IS_STRING:
+			jstr = JS_NewStringCopyN(ctx, Z_STRVAL_P(val), Z_STRLEN_P(val));
+			*jval = STRING_TO_JSVAL(jstr);
+			break;
+		case IS_BOOL:
+			*jval = BOOLEAN_TO_JSVAL(Z_BVAL_P(val));
+			break;
+		case IS_ARRAY:
+			/* retrieve the array hash table */
+			ht = Z_ARRVAL_P(val);
+
+			/* create JSObject */
+			jobj = JS_NewObject(ctx, NULL, NULL, NULL);
+
+			/* foreach item */
+			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
+			{
+				char *key;
+				uint keylen;
+				ulong idx;
+				int type;
+				zval **ppzval, tmpcopy;
+				jsval jival;
+				char intIdx[25];
+
+				// retrieve current key
+				type = zend_hash_get_current_key_ex(ht, &key, &keylen, &idx, 0, NULL);
+				if (zend_hash_get_current_data(ht, (void**)&ppzval) == FAILURE) {
+					/* Should never actually fail
+					* since the key is known to exist. */
+					continue;
+				}
+
+				/* Duplicate the zval so that
+				 * the orignal's contents are not destroyed */
+				tmpcopy = **ppzval;
+				zval_copy_ctor(&tmpcopy);
+				zval_to_jsval(&tmpcopy, ctx, &jival);
+				if (type == HASH_KEY_IS_LONG)
+				{
+					sprintf(intIdx, "%d", idx);
+					JS_SetProperty(ctx, jobj, intIdx, &jival);
+				}
+				else
+				{
+					JS_SetProperty(ctx, jobj, key, &jival);
+				}
+
+				zval_dtor(&tmpcopy);
+			}
+			
+			*jval = OBJECT_TO_JSVAL(jobj);
+			break;
+		default:
+			*jval = JSVAL_VOID;
+			break;
+	}
 }
 
 /*

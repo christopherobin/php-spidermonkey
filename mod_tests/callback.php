@@ -2,11 +2,14 @@
 
 $a = new JSRuntime();
 $b = $a->createContext();
+$b->registerFunction('printf', 'printf');
 
-function test_callback()
+$assScr = <<<SCR
+lf = String.fromCharCode(10);
+for (var idx in env)
 {
-	var_dump(func_get_args());
+    printf('[%s] : %s', idx, env[idx] + lf);
 }
-
-$b->registerFunction('vroum', 'test_callback');
-$b->evaluateScript('vroum(1567, "string", 12.7, false, { a : 17, b : "foo" })');
+SCR;
+$b->assign('env', $_ENV);
+$b->evaluateScript($assScr);

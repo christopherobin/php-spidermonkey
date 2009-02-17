@@ -27,12 +27,6 @@
 #define PHP_SPIDERMONKEY_JSC_NAME			"JSContext"
 #define PHP_JSCONTEXT_DESCRIPTOR_RES_NAME   "Javascript Context"
 
-#define PHP_SPIDERMONKEY_JSO_NAME			"JSObject"
-#define PHP_JSOBJECT_DESCRIPTOR_RES_NAME	"Javascript Object"
-
-// customs zend defines
-#define ZEND_NEW_OBJ(x) static zend_object_value x(zend_class_entry *class_type, php_jscontext_object **ptr TSRMLS_DC)
-
 /************************
 * EXTENSION INTERNALS
 ************************/
@@ -54,9 +48,6 @@ typedef struct _php_jscontext_object  {
 	zend_object				zo;
 	zval					*rt_z;
 	php_jsruntime_object	*rt;
-	/*zend_fcall_info			*fcis;
-	zend_fcall_info_cache	*fcis_cache;
-	int						n_exported_functions;*/
 	HashTable				*ht;
 	/* Javascript related stuff */
 	JSContext				*ct;
@@ -65,17 +56,8 @@ typedef struct _php_jscontext_object  {
 	JSFunctionSpec			global_functions[2];
 } php_jscontext_object;
 
-/* Structure for JSObject object. */
-/*typedef struct _php_jsobject_object  {
-	zend_object				zo;
-	zval					*ct_z;
-	php_jscontext_object	*ct;
-	JSObject				*obj;
-} php_jsobject_object;*/
-
 extern zend_class_entry *php_spidermonkey_jsr_entry;
 extern zend_class_entry *php_spidermonkey_jsc_entry;
-//extern zend_class_entry *php_spidermonkey_jso_entry;
 
 /* this method defined in spidermonkey.c allow us to convert a jsval
  * to a zval for PHP use */
@@ -93,18 +75,14 @@ PHP_METHOD(JSRuntime,   createContext);
 PHP_METHOD(JSContext,   __construct);
 PHP_METHOD(JSContext,   __destruct);
 PHP_METHOD(JSContext,	evaluateScript);
-//PHP_METHOD(JSContext,   createObject);
 PHP_METHOD(JSContext,   registerFunction);
+PHP_METHOD(JSContext,   assign);
 PHP_METHOD(JSContext,   setOptions);
 PHP_METHOD(JSContext,   toggleOptions);
 PHP_METHOD(JSContext,   getOptions);
 PHP_METHOD(JSContext,   setVersion);
 PHP_METHOD(JSContext,   getVersion);
 PHP_METHOD(JSContext,   getVersionString);
-/* JSObject methods */
-/*PHP_METHOD(JSObject,	__construct);
-PHP_METHOD(JSObject,	__destruct);
-PHP_METHOD(JSObject,	evaluateScript);*/
 
 /**
  * {{{
