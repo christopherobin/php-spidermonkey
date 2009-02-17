@@ -87,7 +87,7 @@ static zend_object_value php_jsruntime_object_new(zend_class_entry *class_type T
 static function_entry php_spidermonkey_jsc_functions[] = {
 	PHP_ME(JSContext, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(JSContext, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
-	PHP_ME(JSContext, createObject, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(JSContext, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, setOptions, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, toggleOptions, NULL, ZEND_ACC_PUBLIC)
@@ -103,6 +103,10 @@ static zend_object_handlers jscontext_object_handlers;
 static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 {
 	php_jscontext_object *intern = (php_jscontext_object *)object;
+
+	/* destroy hashtable */
+	zend_hash_destroy(intern->ht);
+	efree(intern->ht);
 
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
@@ -123,6 +127,11 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 		*ptr = intern;
 	}
 
+	/* prepare hashtable for callback storage */
+	intern->ht = (HashTable*)emalloc(sizeof(HashTable));
+	zend_hash_init(intern->ht, 50, NULL, NULL, 0);
+
+	/* create zend object */
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
 	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
 
@@ -134,57 +143,6 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 static zend_object_value php_jscontext_object_new(zend_class_entry *class_type TSRMLS_DC)
 {
 	return php_jscontext_object_new_ex(class_type, NULL TSRMLS_CC);
-}
-
-
-/********************************
-* JSOBJECT STATIC CODE
-********************************/
-
-static function_entry php_spidermonkey_jso_functions[] = {
-	PHP_ME(JSObject, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(JSObject, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
-	PHP_ME(JSObject, evaluateScript, NULL, ZEND_ACC_PUBLIC)
-	{ NULL, NULL, NULL }
-};
-
-static zend_object_handlers jsobject_object_handlers;
-
-static void php_jsobject_object_free_storage(void *object TSRMLS_DC)
-{
-	php_jsobject_object *intern = (php_jsobject_object *)object;
-
-	zend_object_std_dtor(&intern->zo TSRMLS_CC);
-	efree(object);
-}
-
-static zend_object_value php_jsobject_object_new_ex(zend_class_entry *class_type, php_jsobject_object **ptr TSRMLS_DC)
-{
-	zval *tmp;
-	zend_object_value retval;
-	php_jsobject_object *intern;
-
-	/* Allocate memory for it */
-	intern = (php_jsobject_object *) emalloc(sizeof(php_jsobject_object));
-	memset(intern, 0, sizeof(php_jsobject_object));
-
-	if (ptr)
-	{
-		*ptr = intern;
-	}
-
-	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
-	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
-
-	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jsobject_object_free_storage, NULL TSRMLS_CC);
-	retval.handlers = &jsobject_object_handlers;
-
-	return retval;
-}
-
-static zend_object_value php_jsobject_object_new(zend_class_entry *class_type TSRMLS_DC)
-{
-	return php_jsobject_object_new_ex(class_type, NULL TSRMLS_CC);
 }
 
 /**
@@ -222,7 +180,6 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	/* here we set handlers to zero, meaning that we have no handlers set */
 	memcpy(&jsruntime_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	memcpy(&jsobject_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 
 	zend_class_entry ce;
 
@@ -237,11 +194,6 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSC_NAME, php_spidermonkey_jsc_functions);
 	ce.create_object = php_jscontext_object_new;
 	php_spidermonkey_jsc_entry = zend_register_internal_class(&ce TSRMLS_CC);
-
-	/*  init JSObject class */
-	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSO_NAME, php_spidermonkey_jso_functions);
-	ce.create_object = php_jsobject_object_new;
-	php_spidermonkey_jso_entry = zend_register_internal_class(&ce TSRMLS_CC);
 
 	return SUCCESS;
 }
@@ -263,7 +215,7 @@ PHP_MINFO_FUNCTION(spidermonkey)
 	php_info_print_table_end();
 }
 
-/* convert a given jsval in a context to a zval, for PHP acces */
+/* convert a given jsval in a context to a zval, for PHP access */
 void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 {
 	jsval   rval;
@@ -367,6 +319,12 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 	}
 	else /* something is wrong */
 		RETVAL_FALSE;
+}
+
+/* convert a given jsval in a context to a zval, for PHP access */
+void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
+{
+	*jval = JSVAL_VOID;
 }
 
 /*

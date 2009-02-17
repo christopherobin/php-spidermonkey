@@ -9,7 +9,6 @@ $a = new JSRuntime();
 $b = $a->createContext();
 if (!$b->setVersion(JSVERSION_1_5))
 	echo "couldn't set context version to " . $b->getVersionString(JSVERSION_1_5) . "\n";
-$c = $b->createObject();
 echo "Using array map function ( JS " . $b->getVersionString($b->getVersion()) . " ):\n";
-var_dump($c->evaluateScript($script1));
+var_dump($b->evaluateScript($script1));
 

@@ -3,16 +3,6 @@
 static int le_jscontext_descriptor;
 
 /**
- * {{{
- * Those methods are directly available to the javascript
- * allowing extended functionnality and communication with
- * PHP. You need to declare them in the global_functions
- * struct in JSContext's constructor
- */
-//JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-/* }}} */
-
-/**
  * JSContext embedding
  */
 zend_class_entry *php_spidermonkey_jsc_entry;
@@ -54,62 +44,53 @@ PHP_METHOD(JSContext, registerFunction)
 {
 	char					*name;
 	int						name_len;
-	zend_fcall_info			fci;
-	zend_fcall_info_cache	fci_cache;
+	php_callback			callback;
 	php_jscontext_object	*intern;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &name, &name_len, &fci, &fci_cache) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &name, &name_len, &callback.fci, &callback.fci_cache) == FAILURE) {
 		RETURN_NULL();
 	}
 
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
-	intern->n_exported_functions++;
+	zend_hash_add(intern->ht, name, name_len, &callback, sizeof(callback), NULL);
+	
+	JS_DefineFunction(intern->ct, intern->obj, name, generic_call, 1, 0);
 
-	if (intern->fcis)
-	{
-		intern->fcis		= (zend_fcall_info*)erealloc(intern->fcis, intern->n_exported_functions*sizeof(zend_fcall_info));
-		intern->fcis_cache  = (zend_fcall_info_cache*)erealloc(intern->fcis_cache, intern->n_exported_functions*sizeof(zend_fcall_info_cache));
-	}
-	else
-	{
-		intern->fcis		= (zend_fcall_info*)emalloc(intern->n_exported_functions*sizeof(zend_fcall_info));
-		intern->fcis_cache  = (zend_fcall_info_cache*)emalloc(intern->n_exported_functions*sizeof(zend_fcall_info_cache));
-	}
-
-	memcpy(&intern->fcis[intern->n_exported_functions-1], &fci, sizeof(fci));
-	memcpy(&intern->fcis_cache[intern->n_exported_functions-1], &fci_cache, sizeof(fci_cache));
 }
 /* }}} */
 
-/* {{{ proto public JSObject JSContext::createObject()
-   Returns an instance of JSObject using this context */
-PHP_METHOD(JSContext, createObject)
+/* {{{ proto public mixed JSContext::evaluateScript(string $script)
+   Evaluate script and return the last global object in scope to PHP.
+   Objects are not returned for now. Any global variable declared in
+   this script will be usable in any following call to evaluateScript
+   in any JSObject in  the same context. */
+PHP_METHOD(JSContext, evaluateScript)
 {
-	php_jscontext_object	*intern_ct;
-	php_jsobject_object		*intern_ot;
+	char *script;
+	int script_len;
+	php_jscontext_object *intern;
+	jsval rval;
 
-	/* first create JSObject item */
-	object_init_ex(return_value, php_spidermonkey_jso_entry);
+	/* retrieve script */
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
+						"s", &script, &script_len) == FAILURE) {
+		RETURN_FALSE;
+	}
 
-	/* retrieve objects from store */
-	intern_ct = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	intern_ot = (php_jsobject_object *) zend_object_store_get_object(return_value TSRMLS_CC);
+	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	
+	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, NULL, 0, &rval) == JS_TRUE)
+	{
+		/* The script evaluated fine, convert the return value to PHP */
+		jsval_to_zval(return_value, intern->ct, &rval);
+	}
+	else
+	{
+		RETURN_FALSE;
+	}
 
-	/* store this and increment refcount */
-	intern_ot->ct_z = getThis();
-	ZVAL_ADDREF(intern_ot->ct_z);
-
-	/* store store object for fast retrieval */
-	intern_ot->ct = intern_ct;
-	intern_ot->obj = JS_NewObject(intern_ct->ct, &intern_ct->script_class, NULL, NULL);
-
-	/* register globals functions */
-	JS_DefineFunctions(intern_ct->ct, intern_ot->obj, intern_ct->global_functions);
-
-	/* initialize standard JS classes */
-	JS_InitStandardClasses(intern_ct->ct, intern_ot->obj);
 }
 /* }}} */
 
@@ -245,15 +226,70 @@ PHP_METHOD(JSContext, getVersionString)
 *******************************************/
 
 
-/*JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
-	JSString *str;
-	str = JS_ValueToString(cx, argv[0]);
-	char *txt = JS_GetStringBytes(str);
-	php_printf("%s", txt);
+	JSString				*str;
+	JSFunction				*func;
+	JSString				*jfunc_name;
+	char					*func_name;
+	zval					***params, *retval_ptr;
+	php_callback			*callback;
+	php_jscontext_object	*intern;
+	int						i;
+	jsval					jsret;
 
-	return JSVAL_TRUE;
-}*/
+	/* first retrieve function name */
+	func = JS_ValueToFunction(cx, argv[-2]);
+	jfunc_name = JS_GetFunctionId(func);
+	func_name = JS_GetStringBytes(jfunc_name);
+
+	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
+
+	/* search for function callback */
+	if (zend_hash_find(intern->ht, func_name, strlen(func_name), (void**)&callback) == FAILURE) {
+		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
+	}
+
+	/* ready parameters */
+	params = emalloc(argc * sizeof(zval**));
+	for (i = 0; i < argc; i++)
+	{
+		zval **val = emalloc(sizeof(zval*));
+		MAKE_STD_ZVAL(*val);
+		jsval_to_zval(*val, cx, &argv[i]);
+		params[i] = val;
+	}
+
+	callback->fci.params			= params;
+	callback->fci.param_count		= argc;
+	callback->fci.retval_ptr_ptr	= &retval_ptr;
+	
+	zend_call_function(&callback->fci, &callback->fci_cache TSRMLS_CC);
+
+	zval_to_jsval(retval_ptr, cx, &jsret);
+
+	/* call ended, clean */
+	for (i = 0; i < argc; i++)
+	{
+		zval **eval;
+		eval = params[i];
+		zval_ptr_dtor(eval);
+		efree(eval);
+	}
+
+	if (retval_ptr)
+	{
+		zval_ptr_dtor(&retval_ptr);
+	}
+	
+	efree(params);
+
+/*	str = JS_ValueToString(cx, argv[0]);
+	char *txt = JS_GetStringBytes(str);
+	php_printf("%s: %s\n", func_name, txt);*/
+
+	return jsret;
+}
 
 /*
  * Local Variables:

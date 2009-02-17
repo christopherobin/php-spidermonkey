@@ -4,10 +4,8 @@
 /* TODO: change that to an exception */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 {
-	php_printf("%s:%u:%s\n",
-			report->filename ? report->filename : "<no filename>",
-			(unsigned int) report->lineno,
-			message);
+	/* throw error */
+	zend_throw_exception(zend_exception_get_default(TSRMLS_C), message, 0 TSRMLS_CC);
 }
 
 
