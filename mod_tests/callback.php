@@ -3,13 +3,15 @@
 $a = new JSRuntime();
 $b = $a->createContext();
 $b->registerFunction('printf', 'printf');
+$b->registerFunction('read_file', 'file_get_contents');
 
 $assScr = <<<SCR
-lf = String.fromCharCode(10);
-for (var idx in env)
-{
-    printf('[%s] : %s', idx, env[idx] + lf);
-}
+content = read_file('test.xml')
+dom.loadXML(content)
+/*printf("%s", content)*/
 SCR;
-$b->assign('env', $_ENV);
+$dom = new DOMDocument();
+//$b->assign('env', $_ENV);
+$b->assign('test_xml', array($dom, 'loadXML'));
+$b->assign('dom', $dom);
 $b->evaluateScript($assScr);

@@ -17,8 +17,8 @@ PHP_METHOD(JSRuntime, __construct)
    Returns an instance of JSContext using this runtime */
 PHP_METHOD(JSRuntime, createContext)
 {
-	php_jsruntime_object *intern_rt;
-	php_jscontext_object *intern;
+	php_jsruntime_object	*intern_rt;
+	php_jscontext_object	*intern;
 
 	/* init JSContext object */
 	object_init_ex(return_value, php_spidermonkey_jsc_entry);
@@ -34,11 +34,10 @@ PHP_METHOD(JSRuntime, createContext)
 	intern->rt = intern_rt;
 	/* create a new context */
 	intern->ct = JS_NewContext(intern_rt->rt, 8092);
-	/* store pointer to intern */
 	JS_SetContextPrivate(intern->ct, intern);
 
-	/* The script_class is a global object used by PHP to offer methods */
-	intern->script_class.name			= "script";
+	/* The script_class is a global object used by PHP to allow function register */
+	intern->script_class.name			= "PHPclass";
 	intern->script_class.flags		    = JSCLASS_GLOBAL_FLAGS;
 
 	/* Mandatory non-null function pointer members. */
@@ -49,7 +48,7 @@ PHP_METHOD(JSRuntime, createContext)
 	intern->script_class.enumerate	    = JS_EnumerateStub;
 	intern->script_class.resolve		= JS_ResolveStub;
 	intern->script_class.convert		= JS_ConvertStub;
-	intern->script_class.finalize		= JS_FinalizeStub;
+	intern->script_class.finalize		= JS_FinalizePHP;
 
 	/* Optionally non-null members start here. */
 	intern->script_class.getObjectOps	= 0;
@@ -79,6 +78,9 @@ PHP_METHOD(JSRuntime, createContext)
 	
 	/* create global object for execution */
 	intern->obj = JS_NewObject(intern->ct, &intern->script_class, NULL, NULL);
+
+	/* store pointer to HashTable */
+	JS_SetPrivate(intern->ct, intern->obj, intern->ht);
 
 	/* register globals functions */
 	JS_DefineFunctions(intern->ct, intern->obj, intern->global_functions);

@@ -324,9 +324,12 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 /* convert a given jsval in a context to a zval, for PHP access */
 void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 {
-	JSString	*jstr;
-	JSObject	*jobj;
-	HashTable   *ht;
+	JSString				*jstr;
+	JSObject				*jobj;
+	HashTable				*ht, *iht;
+	zend_class_entry		*ce = NULL;
+	zend_function			*fptr;
+	php_jscontext_object	*intern;
 
 	switch(Z_TYPE_P(val))
 	{
@@ -344,6 +347,59 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			*jval = BOOLEAN_TO_JSVAL(Z_BVAL_P(val));
 			break;
 		case IS_OBJECT:
+			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+			/* create JSObject */
+			jobj = JS_NewObject(ctx, &intern->script_class, NULL, NULL);
+			/* retrieve class entry */
+			ce = Z_OBJCE_P(val);
+			/* get function table */
+			ht = &ce->function_table;
+
+			/* intern hashtable for function storage */
+			iht = (HashTable*)emalloc(sizeof(HashTable));
+			zend_hash_init(iht, 50, NULL, NULL, 0);
+			/* store pointer to HashTable */
+			JS_SetPrivate(ctx, jobj, iht);
+
+			/* foreach item */
+			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
+			{
+				char					*key;
+				uint					keylen;
+				php_callback			cb;
+				//jsval			jival;
+
+				// retrieve current key
+				zend_hash_get_current_key_ex(ht, &key, &keylen, 0, 0, NULL);
+				if (zend_hash_get_current_data(ht, (void**)&fptr) == FAILURE) {
+					/* Should never actually fail
+					* since the key is known to exist. */
+					continue;
+				}
+
+				cb.fci.size = sizeof(cb.fci);
+				cb.fci.function_table = NULL;
+				cb.fci.function_name = NULL;
+				cb.fci.symbol_table = NULL;
+				cb.fci.object_pp = &val;
+				cb.fci.retval_ptr_ptr = NULL;
+				cb.fci.param_count = fptr->common.num_args;
+				cb.fci.params = NULL;
+				cb.fci.no_separation = 1;
+
+				cb.fci_cache.initialized = 1;
+				cb.fci_cache.function_handler = fptr;
+				cb.fci_cache.calling_scope = ce;
+				cb.fci_cache.object_pp = &val;
+
+				zend_hash_add(iht, fptr->common.function_name, strlen(fptr->common.function_name), &cb, sizeof(cb), NULL);
+
+				JS_DefineFunction(ctx, jobj, fptr->common.function_name, generic_call, 1, 0);
+
+//				php_printf("%s\n", fptr->common.function_name);
+			}
+			*jval = OBJECT_TO_JSVAL(jobj);
+			break;
 		case IS_ARRAY:
 			/* retrieve the array hash table */
 			ht = HASH_OF(val);

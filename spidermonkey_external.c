@@ -19,3 +19,18 @@ JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	return JSVAL_TRUE;
 }
 
+void JS_FinalizePHP(JSContext *cx, JSObject *obj)
+{
+	HashTable				*ht;
+	php_jscontext_object	*intern;
+
+	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
+	ht = (HashTable*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+
+	if (ht)
+	{
+		/* destroy hashtable */
+		zend_hash_destroy(ht);
+		efree(ht);
+	}
+}

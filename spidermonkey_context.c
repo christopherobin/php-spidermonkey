@@ -258,17 +258,25 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	zval					***params, *retval_ptr;
 	php_callback			*callback;
 	php_jscontext_object	*intern;
+	HashTable				*ht;
 	int						i;
 
 	/* first retrieve function name */
-	func = JS_ValueToFunction(cx, argv[-2]);
+	func = JS_ValueToFunction(cx, ((argv)[-2]));
 	jfunc_name = JS_GetFunctionId(func);
 	func_name = JS_GetStringBytes(jfunc_name);
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 
+	if ((ht = (HashTable*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL)) == 0)
+	{
+		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function table", 0 TSRMLS_CC);
+	}
+
+	php_printf("%p\n", ht);
+
 	/* search for function callback */
-	if (zend_hash_find(intern->ht, func_name, strlen(func_name), (void**)&callback) == FAILURE) {
+	if (zend_hash_find(ht, func_name, strlen(func_name), (void**)&callback) == FAILURE) {
 		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
 	}
 
@@ -285,7 +293,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	callback->fci.params			= params;
 	callback->fci.param_count		= argc;
 	callback->fci.retval_ptr_ptr	= &retval_ptr;
-	
+
 	zend_call_function(&callback->fci, &callback->fci_cache TSRMLS_CC);
 
 	zval_to_jsval(retval_ptr, cx, rval);
