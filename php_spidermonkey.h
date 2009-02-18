@@ -37,6 +37,12 @@ typedef struct _php_callback {
 	zend_fcall_info_cache   fci_cache;
 } php_callback;
 
+/* Used by JSObject to refer to their parent object */
+typedef struct _php_jsobject_ref {
+	HashTable				*ht;
+	zval					*obj;
+} php_jsobject_ref;
+
 /* Structure for JSRuntime object. */
 typedef struct _php_jsruntime_object  {
 	zend_object				zo;
@@ -48,12 +54,11 @@ typedef struct _php_jscontext_object  {
 	zend_object				zo;
 	zval					*rt_z;
 	php_jsruntime_object	*rt;
-	HashTable				*ht;
+	php_jsobject_ref		*jsref;
 	/* Javascript related stuff */
 	JSContext				*ct;
 	JSClass					script_class;
 	JSObject				*obj;
-	JSFunctionSpec			global_functions[2];
 } php_jscontext_object;
 
 extern zend_class_entry *php_spidermonkey_jsr_entry;

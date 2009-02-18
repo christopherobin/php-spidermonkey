@@ -27,7 +27,7 @@ PHP_METHOD(JSContext, __destruct)
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
 #if ((PHP_MAJOR_VERSION > 5) || (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION >= 3))
-	Z_ADDREF_P(intern->rt_z);
+	Z_DELREF_P(intern->rt_z);
 #else
 	ZVAL_DELREF(intern->rt_z);
 #endif
@@ -60,7 +60,9 @@ PHP_METHOD(JSContext, registerFunction)
 
 	Z_ADDREF_P(callback.fci.function_name);
 
-	zend_hash_add(intern->ht, name, name_len, &callback, sizeof(callback), NULL);
+	/* TODO: error management is needed here, we should throw an exception if the "name" entry
+	 *        already exists */
+	zend_hash_add(intern->jsref->ht, name, name_len, &callback, sizeof(callback), NULL);
 
 	JS_DefineFunction(intern->ct, intern->obj, name, generic_call, 1, 0);
 
@@ -249,82 +251,6 @@ PHP_METHOD(JSContext, getVersionString)
 	RETVAL_STRINGL(estrndup(version_str, l), l, 0);
 }
 /* }}} */
-
-/*******************************************
-* Internal function for the script JS class
-*******************************************/
-
-
-JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
-{
-	JSString				*str;
-	JSFunction				*func;
-	JSString				*jfunc_name;
-	char					*func_name;
-	zval					***params, *retval_ptr;
-	php_callback			*callback;
-	php_jscontext_object	*intern;
-	HashTable				*ht;
-	int						i;
-
-	/* first retrieve function name */
-	func = JS_ValueToFunction(cx, ((argv)[-2]));
-	jfunc_name = JS_GetFunctionId(func);
-	func_name = JS_GetStringBytes(jfunc_name);
-
-	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-
-	if ((ht = (HashTable*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL)) == 0)
-	{
-		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function table", 0 TSRMLS_CC);
-	}
-
-	/* search for function callback */
-	if (zend_hash_find(ht, func_name, strlen(func_name), (void**)&callback) == FAILURE) {
-		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
-	}
-
-	/* ready parameters */
-	params = emalloc(argc * sizeof(zval**));
-	for (i = 0; i < argc; i++)
-	{
-		zval **val = emalloc(sizeof(zval*));
-		MAKE_STD_ZVAL(*val);
-		jsval_to_zval(*val, cx, &argv[i]);
-		params[i] = val;
-	}
-
-	callback->fci.params			= params;
-	callback->fci.param_count		= argc;
-	callback->fci.retval_ptr_ptr	= &retval_ptr;
-
-//	php_printf("Size: %d\nFunction table: %p\nFunction name: %s\n", callback->fci.size, callback->fci.function_table, callback->fci.function_name);
-
-	zend_call_function(&callback->fci, NULL TSRMLS_CC);
-
-	/* call ended, clean */
-	for (i = 0; i < argc; i++)
-	{
-		zval **eval;
-		eval = params[i];
-		zval_ptr_dtor(eval);
-		efree(eval);
-	}
-
-	if (retval_ptr)
-	{
-		zval_to_jsval(retval_ptr, cx, rval);
-		zval_ptr_dtor(&retval_ptr);
-	}
-	else
-	{
-		*rval = JSVAL_VOID;
-	}
-	
-	efree(params);
-
-	return JS_TRUE;
-}
 
 /*
  * Local Variables:

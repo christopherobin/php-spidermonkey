@@ -64,16 +64,6 @@ PHP_METHOD(JSRuntime, createContext)
 	intern->script_class.mark			= 0;
 	intern->script_class.reserveSlots	= 0;
 
-	/* register global functions */
-	intern->global_functions[0].name	= "write";
-	intern->global_functions[0].call	= script_write;
-	intern->global_functions[0].nargs	= 1;
-	intern->global_functions[0].flags	= 0;
-	intern->global_functions[0].extra	= 0;
-
-	/* last element of the list need to be zeroed */
-	memset(&intern->global_functions[1], 0, sizeof(JSFunctionSpec));
-
 	/* says that our script runs in global scope */
 	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX);
 
@@ -84,10 +74,7 @@ PHP_METHOD(JSRuntime, createContext)
 	intern->obj = JS_NewObject(intern->ct, &intern->script_class, NULL, NULL);
 
 	/* store pointer to HashTable */
-	JS_SetPrivate(intern->ct, intern->obj, intern->ht);
-
-	/* register globals functions */
-	JS_DefineFunctions(intern->ct, intern->obj, intern->global_functions);
+	JS_SetPrivate(intern->ct, intern->obj, intern->jsref);
 
 	/* initialize standard JS classes */
 	JS_InitStandardClasses(intern->ct, intern->obj);

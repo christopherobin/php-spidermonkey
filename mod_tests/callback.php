@@ -3,11 +3,12 @@
 $a = new JSRuntime();
 $b = $a->createContext();
 $b->registerFunction('printf', 'printf');
-$b->registerFunction('read_file', 'file_get_contents');
 
 $assScr = <<<SCR
-content = read_file('test.xml')
-dom.loadXML(content)
+node = dom.createElement("test")
+dom.appendChild(node)
+node2 = dom.createElement("foo", "bar")
+node.appendChild(node2)
 printf("%s", dom.saveXML())
 SCR;
 $dom = new DOMDocument();
