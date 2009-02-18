@@ -29,7 +29,11 @@ PHP_METHOD(JSRuntime, createContext)
 
 	/* store this and increment ref count */
 	intern->rt_z = getThis();
+#if ((PHP_MAJOR_VERSION > 5) || (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION >= 3))
+	Z_ADDREF_P(intern->rt_z);
+#else
 	ZVAL_ADDREF(intern->rt_z);
+#endif
 
 	intern->rt = intern_rt;
 	/* create a new context */
