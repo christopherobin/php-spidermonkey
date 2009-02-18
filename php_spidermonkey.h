@@ -5,7 +5,7 @@
 /* Define Extension Properties */
 #define PHP_SPIDERMONKEY_EXTNAME	"spidermonkey"
 #define PHP_SPIDERMONKEY_MINFO_NAME "SpiderMonkey"
-#define PHP_SPIDERMONKEY_EXTVER		"0.6"
+#define PHP_SPIDERMONKEY_EXTVER		"0.7"
 
 /* Import configure options
    when building outside of

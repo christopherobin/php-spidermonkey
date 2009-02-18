@@ -343,9 +343,10 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 		case IS_BOOL:
 			*jval = BOOLEAN_TO_JSVAL(Z_BVAL_P(val));
 			break;
+		case IS_OBJECT:
 		case IS_ARRAY:
 			/* retrieve the array hash table */
-			ht = Z_ARRVAL_P(val);
+			ht = HASH_OF(val);
 
 			/* create JSObject */
 			jobj = JS_NewObject(ctx, NULL, NULL, NULL);
