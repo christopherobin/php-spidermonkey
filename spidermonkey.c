@@ -372,6 +372,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				char					*key;
 				uint					keylen;
 				php_callback			cb;
+				zval					*z_fname;
 				//jsval			jival;
 
 				// retrieve current key
@@ -382,9 +383,12 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 					continue;
 				}
 
+				MAKE_STD_ZVAL(z_fname);
+				ZVAL_STRING(z_fname, fptr->common.function_name, 1);
+
 				cb.fci.size = sizeof(cb.fci);
-				cb.fci.function_table = NULL;
-				cb.fci.function_name = NULL;
+				cb.fci.function_table = &ce->function_table;
+				cb.fci.function_name = z_fname;
 				cb.fci.symbol_table = NULL;
 				cb.fci.object_ptr = val;
 				cb.fci.retval_ptr_ptr = NULL;

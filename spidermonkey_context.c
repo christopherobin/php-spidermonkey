@@ -58,8 +58,10 @@ PHP_METHOD(JSContext, registerFunction)
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 
+	Z_ADDREF_P(callback.fci.function_name);
+
 	zend_hash_add(intern->ht, name, name_len, &callback, sizeof(callback), NULL);
-	
+
 	JS_DefineFunction(intern->ct, intern->obj, name, generic_call, 1, 0);
 
 }
@@ -277,8 +279,6 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function table", 0 TSRMLS_CC);
 	}
 
-	php_printf("%p\n", ht);
-
 	/* search for function callback */
 	if (zend_hash_find(ht, func_name, strlen(func_name), (void**)&callback) == FAILURE) {
 		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
@@ -298,9 +298,9 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	callback->fci.param_count		= argc;
 	callback->fci.retval_ptr_ptr	= &retval_ptr;
 
-	zend_call_function(&callback->fci, &callback->fci_cache TSRMLS_CC);
+//	php_printf("Size: %d\nFunction table: %p\nFunction name: %s\n", callback->fci.size, callback->fci.function_table, callback->fci.function_name);
 
-	zval_to_jsval(retval_ptr, cx, rval);
+	zend_call_function(&callback->fci, NULL TSRMLS_CC);
 
 	/* call ended, clean */
 	for (i = 0; i < argc; i++)
@@ -313,7 +313,12 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 
 	if (retval_ptr)
 	{
+		zval_to_jsval(retval_ptr, cx, rval);
 		zval_ptr_dtor(&retval_ptr);
+	}
+	else
+	{
+		*rval = JSVAL_VOID;
 	}
 	
 	efree(params);

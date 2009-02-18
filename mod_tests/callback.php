@@ -8,10 +8,10 @@ $b->registerFunction('read_file', 'file_get_contents');
 $assScr = <<<SCR
 content = read_file('test.xml')
 dom.loadXML(content)
-/*printf("%s", content)*/
+printf("%s", dom.saveXML())
 SCR;
 $dom = new DOMDocument();
-//$b->assign('env', $_ENV);
-$b->assign('test_xml', array($dom, 'loadXML'));
 $b->assign('dom', $dom);
 $b->evaluateScript($assScr);
+
+//echo $dom->saveXML();
