@@ -8,6 +8,7 @@ void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 	zend_throw_exception(zend_exception_get_default(TSRMLS_C), message, 0 TSRMLS_CC);
 }
 
+/* all function calls are mapped through this unique function */
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
 	JSString				*str;
@@ -51,8 +52,6 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	callback->fci.params			= params;
 	callback->fci.param_count		= argc;
 	callback->fci.retval_ptr_ptr	= &retval_ptr;
-
-//	php_printf("Size: %d\nFunction table: %p\nFunction name: %s\n", callback->fci.size, callback->fci.function_table, callback->fci.function_name);
 
 	zend_call_function(&callback->fci, NULL TSRMLS_CC);
 
@@ -123,7 +122,6 @@ void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 		/* remove reference to object and call ptr dtor */
 		if (jsref->obj != NULL)
 		{
-			Z_DELREF_P(jsref->obj);
 			zval_ptr_dtor(&jsref->obj);
 		}
 
