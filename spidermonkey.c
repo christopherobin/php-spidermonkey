@@ -360,6 +360,20 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 		case IS_BOOL:
 			*jval = BOOLEAN_TO_JSVAL(Z_BVAL_P(val));
 			break;
+		case IS_RESOURCE:
+			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+			/* create JSObject */
+			jobj = JS_NewObject(ctx, &intern->script_class, NULL, NULL);
+
+			jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
+			/* store pointer to object */
+			SEPARATE_ARG_IF_REF(val);
+			jsref->obj = val;
+			/* store pointer to HashTable */
+			JS_SetPrivate(ctx, jobj, jsref);
+			
+			*jval = OBJECT_TO_JSVAL(jobj);
+			break;
 		case IS_OBJECT:
 			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 			/* create JSObject */
@@ -374,8 +388,8 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			jsref->ht = (HashTable*)emalloc(sizeof(HashTable));
 			zend_hash_init(jsref->ht, 50, NULL, NULL, 0);
 			/* store pointer to object */
+			SEPARATE_ARG_IF_REF(val);
 			jsref->obj = val;
-			Z_ADDREF_P(val);
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
 
