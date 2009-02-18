@@ -368,6 +368,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
 			/* store pointer to object */
 			SEPARATE_ARG_IF_REF(val);
+			jsref->ht = NULL;
 			jsref->obj = val;
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
