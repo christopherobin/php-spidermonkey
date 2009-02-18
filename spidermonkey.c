@@ -331,6 +331,11 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 	zend_function			*fptr;
 	php_jscontext_object	*intern;
 
+	if (val == NULL) {
+		*jval = JSVAL_VOID;
+		return;
+	}
+
 	switch(Z_TYPE_P(val))
 	{
 		case IS_DOUBLE:
