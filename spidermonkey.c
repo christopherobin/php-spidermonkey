@@ -394,7 +394,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
 
-			/* foreach item */
+			/* foreach functions */
 			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
 			{
 				char					*key;

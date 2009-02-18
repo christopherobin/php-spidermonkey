@@ -48,6 +48,7 @@ PHP_METHOD(JSRuntime, createContext)
 	intern->script_class.addProperty	= JS_PropertyStub;
 	intern->script_class.delProperty	= JS_PropertyStub;
 	intern->script_class.getProperty	= JS_PropertyStub;
+	//intern->script_class.getProperty	= JS_PropertyGetterPHP;
 	intern->script_class.setProperty	= JS_PropertyStub;
 	intern->script_class.enumerate	    = JS_EnumerateStub;
 	intern->script_class.resolve		= JS_ResolveStub;

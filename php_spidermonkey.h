@@ -101,8 +101,8 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 
 /* Methods used/exported in JS */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report);
-JSBool script_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 void JS_FinalizePHP(JSContext *cx, JSObject *obj);
+JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
 
 /* Define the entry point symbol
  * Zend will use when loading this module

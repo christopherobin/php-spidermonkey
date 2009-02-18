@@ -1,4 +1,5 @@
 #include "php_spidermonkey.h"
+#include "jsobj.h"
 
 /* The error reporter callback. */
 /* TODO: change that to an exception */
@@ -79,6 +80,46 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	return JS_TRUE;
 }
 
+JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
+{
+	php_jsobject_ref        *jsref;
+	php_jscontext_object	*intern;
+
+	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+
+	if (jsref != NULL)
+	{
+		if (jsref->obj != NULL)
+		{
+			jsval js_propname;
+			if (JS_IdToValue(cx, id, &js_propname) == JS_TRUE)
+			{
+				zval *val;
+				JSString *str;
+				jsval item_val;
+				char *prop_name;
+
+				str = JS_ValueToString(cx, js_propname);
+				prop_name = JS_GetStringBytes(str);
+				php_printf("reading property: %s\n", prop_name);
+
+				if (zend_hash_find(Z_OBJPROP_P(jsref->obj), prop_name, sizeof(prop_name), (void**)&val) == FAILURE) {
+					/* $rcvdclass->foo doesn't exist */
+					return JS_TRUE;
+				}
+
+				zval_to_jsval(val, cx, vp);
+				return JS_TRUE;
+			}
+		}
+	}
+
+	return JS_TRUE;
+}
+
+/* This is called when a JSObject is destroyed by the GC or when the context
+ * is detroyed */
 void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 {
 	php_jsobject_ref        *jsref;
