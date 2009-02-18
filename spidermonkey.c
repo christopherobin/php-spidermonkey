@@ -484,6 +484,9 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			
 			*jval = OBJECT_TO_JSVAL(jobj);
 			break;
+		case IS_NULL:
+			*jval = JSVAL_NULL;
+			break;
 		default:
 			*jval = JSVAL_VOID;
 			break;
