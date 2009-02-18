@@ -381,7 +381,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				cb.fci.function_table = NULL;
 				cb.fci.function_name = NULL;
 				cb.fci.symbol_table = NULL;
-				cb.fci.object_pp = &val;
+				cb.fci.object_ptr = val;
 				cb.fci.retval_ptr_ptr = NULL;
 				cb.fci.param_count = fptr->common.num_args;
 				cb.fci.params = NULL;
@@ -390,7 +390,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				cb.fci_cache.initialized = 1;
 				cb.fci_cache.function_handler = fptr;
 				cb.fci_cache.calling_scope = ce;
-				cb.fci_cache.object_pp = &val;
+				cb.fci_cache.object_ptr = val;
 
 				zend_hash_add(iht, fptr->common.function_name, strlen(fptr->common.function_name), &cb, sizeof(cb), NULL);
 
