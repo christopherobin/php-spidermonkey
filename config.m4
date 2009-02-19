@@ -27,7 +27,7 @@ AC_DEFUN([PHP_SPIDERMONKEY_CHECK_VERSION],[
 ])  
 
 PHP_ARG_WITH(spidermonkey, enable spidermonkey support,
-[  --with-spidermonkey[=DIR]     Include spidermonkey support])
+[  --with-spidermonkey[=DIR]     whether to enable spidermonkey support])
 
 if test "$PHP_SPIDERMONKEY" != "no"; then
   for i in $PHP_SPIDERMONKEY /usr/local /usr; do
