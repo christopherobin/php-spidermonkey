@@ -19,7 +19,6 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	zval					***params, *retval_ptr;
 	php_callback			*callback;
 	php_jscontext_object	*intern;
-//	HashTable				*ht;
 	php_jsobject_ref		*jsref;
 	int						i;
 
@@ -82,7 +81,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 {
-	php_jsobject_ref        *jsref;
+	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
@@ -122,7 +121,7 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
  * is detroyed */
 void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 {
-	php_jsobject_ref        *jsref;
+	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
@@ -144,7 +143,7 @@ void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 				int type;
 				php_callback *callback;
 
-				// retrieve current key
+				/* retrieve current key */
 				type = zend_hash_get_current_key_ex(jsref->ht, &key, &keylen, &idx, 0, NULL);
 				if (zend_hash_get_current_data(jsref->ht, (void**)&callback) == FAILURE) {
 					/* Should never actually fail
@@ -152,7 +151,7 @@ void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 					continue;
 				}
 
-				// free the string used for the function name
+				/* free the string used for the function name */
 				zval_ptr_dtor(&callback->fci.function_name);
 			}
 			/* destroy hashtable */

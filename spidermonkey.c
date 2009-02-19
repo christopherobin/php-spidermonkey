@@ -278,10 +278,10 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 
 		if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == 0 || jsref->obj == NULL)
 		{
-			//  create stdClass
+			/* create stdClass */
 			object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
 
-			//  then iterate on each property
+			/* then iterate on each property */
 			it = JS_Enumerate(ctx, obj);
 
 			for (i = 0; i < it->length; i++)
@@ -401,13 +401,12 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				uint					keylen;
 				php_callback			cb;
 				zval					*z_fname;
-				//jsval			jival;
 
-				// retrieve current key
+				/* retrieve current key */
 				zend_hash_get_current_key_ex(ht, &key, &keylen, 0, 0, NULL);
 				if (zend_hash_get_current_data(ht, (void**)&fptr) == FAILURE) {
 					/* Should never actually fail
-					* since the key is known to exist. */
+					 * since the key is known to exist. */
 					continue;
 				}
 
@@ -457,11 +456,11 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				jsval jival;
 				char intIdx[25];
 
-				// retrieve current key
+				/* retrieve current key */
 				type = zend_hash_get_current_key_ex(ht, &key, &keylen, &idx, 0, NULL);
 				if (zend_hash_get_current_data(ht, (void**)&ppzval) == FAILURE) {
 					/* Should never actually fail
-					* since the key is known to exist. */
+					 * since the key is known to exist. */
 					continue;
 				}
 

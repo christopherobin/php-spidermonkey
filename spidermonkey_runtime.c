@@ -9,8 +9,8 @@ zend_class_entry *php_spidermonkey_jsr_entry;
 
 PHP_METHOD(JSRuntime, __construct)
 {
-    /*  maybe we should add an array containing options ? */
-/*     return SUCCESS; */
+	/*  maybe we should add an array containing options ? */
+/*	 return SUCCESS; */
 }
 
 /* {{{ proto public JSContext JSRuntime::createContext()
@@ -42,15 +42,17 @@ PHP_METHOD(JSRuntime, createContext)
 
 	/* The script_class is a global object used by PHP to allow function register */
 	intern->script_class.name			= "PHPclass";
-	intern->script_class.flags		    = JSCLASS_GLOBAL_FLAGS;
+	intern->script_class.flags			= JSCLASS_GLOBAL_FLAGS;
 
 	/* Mandatory non-null function pointer members. */
 	intern->script_class.addProperty	= JS_PropertyStub;
 	intern->script_class.delProperty	= JS_PropertyStub;
 	intern->script_class.getProperty	= JS_PropertyStub;
-	//intern->script_class.getProperty	= JS_PropertyGetterPHP;
+	/* this getter doesn't work yet, waiting for spidermonkey
+	 * 1.8.0 which should be out next week */
+	/* intern->script_class.getProperty	= JS_PropertyGetterPHP; */
 	intern->script_class.setProperty	= JS_PropertyStub;
-	intern->script_class.enumerate	    = JS_EnumerateStub;
+	intern->script_class.enumerate		= JS_EnumerateStub;
 	intern->script_class.resolve		= JS_ResolveStub;
 	intern->script_class.convert		= JS_ConvertStub;
 	intern->script_class.finalize		= JS_FinalizePHP;
