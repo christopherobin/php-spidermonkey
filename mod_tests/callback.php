@@ -1,13 +1,12 @@
 <?php
 
-$a = new JSRuntime();
-$b = $a->createContext();
+$b = new JSContext();
 $b->registerFunction('printf', 'printf');
 $b->registerFunction('fputs', 'fputs');
 $b->registerFunction('curl_init', 'curl_init');
 $b->registerFunction('curl_exec', 'curl_exec');
 
-$assScr = <<<SCR
+$script = <<<SCR
 printf('******** OBJECT MANAGEMENT TEST ********' + PHP_EOL)
 node = dom.createElement("test")
 dom.appendChild(node)
@@ -25,6 +24,5 @@ $dom = new DOMDocument();
 $b->assign('dom', $dom);
 $b->assign('stdin', STDIN);
 $b->assign('PHP_EOL', PHP_EOL);
-$b->evaluateScript($assScr);
+$b->evaluateScript($script);
 
-//echo $dom->saveXML();

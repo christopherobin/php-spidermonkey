@@ -1,7 +1,8 @@
 #include "php_spidermonkey.h"
 
-static int le_jsruntime_descriptor;
 static int le_jscontext_descriptor;
+
+ZEND_DECLARE_MODULE_GLOBALS(spidermonkey);
 
 zend_module_entry spidermonkey_module_entry = {
 	STANDARD_MODULE_HEADER,
@@ -20,72 +21,12 @@ zend_module_entry spidermonkey_module_entry = {
 ZEND_GET_MODULE(spidermonkey)
 #endif
 
-/******************************
-* JSRUNTIME STATIC METHODS
-******************************/
-
-static function_entry php_spidermonkey_jsr_functions[] = {
-	PHP_ME(JSRuntime, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(JSRuntime, createContext, NULL, ZEND_ACC_PUBLIC)
-	{ NULL, NULL, NULL }
-};
-
-static zend_object_handlers jsruntime_object_handlers;
-
-/* called when the object is destroyed */
-static void php_jsruntime_object_free_storage(void *object TSRMLS_DC)
-{
-	php_jsruntime_object *intern = (php_jsruntime_object *)object;
-
-	/* there should always be a runtime there, so we free it */
-	if (intern->rt != (JSRuntime *)NULL) {
-		JS_DestroyRuntime(intern->rt);
-	}
-
-	zend_object_std_dtor(&intern->zo TSRMLS_CC);
-	efree(object);
-}
-
-/* called at object construct, we create the structure containing all data
- * needed by spidermonkey */
-static zend_object_value php_jsruntime_object_new_ex(zend_class_entry *class_type, php_jsruntime_object **ptr TSRMLS_DC)
-{
-	zval *tmp;
-	zend_object_value retval;
-	php_jsruntime_object *intern;
-
-	/* Allocate memory for it */
-	intern = (php_jsruntime_object *) emalloc(sizeof(php_jsruntime_object));
-	memset(intern, 0, sizeof(php_jsruntime_object));
-
-	if (ptr)
-	{
-		*ptr = intern;
-	}
-
-	intern->rt = JS_NewRuntime(PHP_JSRUNTIME_GC_MEMORY_THRESHOLD);
-
-	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
-	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
-
-	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jsruntime_object_free_storage, NULL TSRMLS_CC);
-	retval.handlers = (zend_object_handlers *) &jsruntime_object_handlers;
-
-	return retval;
-}
-
-static zend_object_value php_jsruntime_object_new(zend_class_entry *class_type TSRMLS_DC)
-{
-	return php_jsruntime_object_new_ex(class_type, NULL TSRMLS_CC);
-}
-
 /********************************
 * JSCONTEXT STATIC CODE
 ********************************/
 
 static function_entry php_spidermonkey_jsc_functions[] = {
 	PHP_ME(JSContext, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(JSContext, __destruct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
 	PHP_ME(JSContext, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, assign, NULL, ZEND_ACC_PUBLIC)
@@ -103,6 +44,12 @@ static zend_object_handlers jscontext_object_handlers;
 static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 {
 	php_jscontext_object *intern = (php_jscontext_object *)object;
+
+	/* if a context is found ( which should be the case )
+	 * destroy it
+	 */
+	if (intern->ct != (JSContext*)NULL)
+		JS_DestroyContext(intern->ct);
 
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
@@ -123,11 +70,62 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 		*ptr = intern;
 	}
 
+	/* if no runtime is found create one */
+	if (SPIDERMONKEY_G(rt) == NULL)
+	{
+		SPIDERMONKEY_G(rt) = JS_NewRuntime(PHP_JSRUNTIME_GC_MEMORY_THRESHOLD);
+	}
+
 	/* prepare hashtable for callback storage */
 	intern->jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
 	intern->jsref->ht = (HashTable*)emalloc(sizeof(HashTable));
 	zend_hash_init(intern->jsref->ht, 50, NULL, NULL, 0);
 	intern->jsref->obj = NULL;
+
+	intern->ct = JS_NewContext(SPIDERMONKEY_G(rt), 8092);
+	JS_SetContextPrivate(intern->ct, intern);
+
+	/* The script_class is a global object used by PHP to allow function register */
+	intern->script_class.name			= "PHPclass";
+	intern->script_class.flags			= JSCLASS_GLOBAL_FLAGS;
+
+	/* Mandatory non-null function pointer members. */
+	intern->script_class.addProperty	= JS_PropertyStub;
+	intern->script_class.delProperty	= JS_PropertyStub;
+	intern->script_class.getProperty	= JS_PropertyStub;
+	/* this getter doesn't work yet, waiting for spidermonkey
+	 * 1.8.0 which should be out next week */
+	/* intern->script_class.getProperty	= JS_PropertyGetterPHP; */
+	intern->script_class.setProperty	= JS_PropertyStub;
+	intern->script_class.enumerate		= JS_EnumerateStub;
+	intern->script_class.resolve		= JS_ResolveStub;
+	intern->script_class.convert		= JS_ConvertStub;
+	intern->script_class.finalize		= JS_FinalizePHP;
+
+	/* Optionally non-null members start here. */
+	intern->script_class.getObjectOps	= 0;
+	intern->script_class.checkAccess	= 0;
+	intern->script_class.call			= 0;
+	intern->script_class.construct		= 0;
+	intern->script_class.xdrObject		= 0;
+	intern->script_class.hasInstance	= 0;
+	intern->script_class.mark			= 0;
+	intern->script_class.reserveSlots	= 0;
+
+	/* says that our script runs in global scope */
+	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX);
+
+	/* set the error callback */
+	JS_SetErrorReporter(intern->ct, reportError);
+	
+	/* create global object for execution */
+	intern->obj = JS_NewObject(intern->ct, &intern->script_class, NULL, NULL);
+
+	/* store pointer to HashTable */
+	JS_SetPrivate(intern->ct, intern->obj, intern->jsref);
+
+	/* initialize standard JS classes */
+	JS_InitStandardClasses(intern->ct, intern->obj);
 
 	/* create zend object */
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
@@ -174,23 +172,21 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	REGISTER_LONG_CONSTANT("JSVERSION_DEFAULT", JSVERSION_DEFAULT,  CONST_CS | CONST_PERSISTENT);
 
 	/*  CLASS INIT */
+#ifdef ZTS
+	ts_allocate_id(&spidermonkey_globals_id, sizeof(spidermonkey_globals), NULL, NULL);
+#endif
+	SPIDERMONKEY_G(rt) = NULL;
 
 	/* here we set handlers to zero, meaning that we have no handlers set */
-	memcpy(&jsruntime_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 
 	zend_class_entry ce;
 
-	/*  init JSRuntime class */
-	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSR_NAME, php_spidermonkey_jsr_functions);
-	/* this function will be called when the object is created by php */
-	ce.create_object = php_jsruntime_object_new;
-	/* register class in PHP */
-	php_spidermonkey_jsr_entry = zend_register_internal_class(&ce TSRMLS_CC);
-
 	/*  init JSContext class */
 	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSC_NAME, php_spidermonkey_jsc_functions);
+	/* this function will be called when the object is created by php */
 	ce.create_object = php_jscontext_object_new;
+	/* register class in PHP */
 	php_spidermonkey_jsc_entry = zend_register_internal_class(&ce TSRMLS_CC);
 
 	return SUCCESS;

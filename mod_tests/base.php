@@ -23,13 +23,11 @@ obj = {
 }
 SCR;
 
-$a = new JSRuntime();
-$b = $a->createContext();
+$b = new JSContext();
 echo "MyMath.hyp(7, 15):\n";
 var_dump($b->evaluateScript($script1));
 echo "MyConcat(\"hello\", \"world\"):\n";
 var_dump($b->evaluateScript($script2));
 echo "ParseInt(MyMath.hyp(4, 6)):\n";
 var_dump($b->evaluateScript("parseInt(MyMath.hyp(4, 6))"));
-var_dump($b->evaluateScript('write("hello world !\n")'));
 var_dump($b->evaluateScript($script3));

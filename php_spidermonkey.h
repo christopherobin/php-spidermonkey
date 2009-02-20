@@ -5,7 +5,7 @@
 /* Define Extension Properties */
 #define PHP_SPIDERMONKEY_EXTNAME	"spidermonkey"
 #define PHP_SPIDERMONKEY_MINFO_NAME "SpiderMonkey"
-#define PHP_SPIDERMONKEY_EXTVER		"0.7"
+#define PHP_SPIDERMONKEY_EXTVER		"0.8"
 
 /* Import configure options
    when building outside of
@@ -20,8 +20,6 @@
 /* Include JSAPI Header */
 #include "jsapi.h"
 
-#define PHP_SPIDERMONKEY_JSR_NAME			"JSRuntime"
-#define PHP_JSRUNTIME_DESCRIPTOR_RES_NAME   "Javascript Runtime"
 #define PHP_JSRUNTIME_GC_MEMORY_THRESHOLD   8L * 1024L * 1024L
 
 #define PHP_SPIDERMONKEY_JSC_NAME			"JSContext"
@@ -30,6 +28,16 @@
 /************************
 * EXTENSION INTERNALS
 ************************/
+
+ZEND_BEGIN_MODULE_GLOBALS(spidermonkey)
+	JSRuntime *rt;
+ZEND_END_MODULE_GLOBALS(spidermonkey)
+
+#ifdef ZTS
+	#define SPIDERMONKEY_G(v) TSRMG(spidermonkey_globals_id, zend_spidermonkey_globals*, v)
+#else
+	#define SPIDERMONKEY_G(v) (spidermonkey_globals.v)
+#endif
 
 /* Used by JSContext to store callbacks */
 typedef struct _php_callback {
@@ -43,17 +51,10 @@ typedef struct _php_jsobject_ref {
 	zval					*obj;
 } php_jsobject_ref;
 
-/* Structure for JSRuntime object. */
-typedef struct _php_jsruntime_object  {
-	zend_object				zo;
-	JSRuntime				*rt;
-} php_jsruntime_object;
-
 /* Structure for JSContext object. */
 typedef struct _php_jscontext_object  {
 	zend_object				zo;
 	zval					*rt_z;
-	php_jsruntime_object	*rt;
 	php_jsobject_ref		*jsref;
 	/* Javascript related stuff */
 	JSContext				*ct;
@@ -61,7 +62,6 @@ typedef struct _php_jscontext_object  {
 	JSObject				*obj;
 } php_jscontext_object;
 
-extern zend_class_entry *php_spidermonkey_jsr_entry;
 extern zend_class_entry *php_spidermonkey_jsc_entry;
 
 /* this method defined in spidermonkey.c allow us to convert a jsval
@@ -73,12 +73,8 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval);
 PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);
 PHP_MINFO_FUNCTION(spidermonkey);
-/* JSRuntime methods */
-PHP_METHOD(JSRuntime,   __construct);
-PHP_METHOD(JSRuntime,   createContext);
 /* JSContext methods */
 PHP_METHOD(JSContext,   __construct);
-PHP_METHOD(JSContext,   __destruct);
 PHP_METHOD(JSContext,	evaluateScript);
 PHP_METHOD(JSContext,   registerFunction);
 PHP_METHOD(JSContext,   assign);

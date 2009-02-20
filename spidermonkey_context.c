@@ -13,32 +13,7 @@ zend_class_entry *php_spidermonkey_jsc_entry;
 PHP_METHOD(JSContext, __construct)
 {
 	/* prevent creating this object */
-	zend_throw_exception(zend_exception_get_default(TSRMLS_C), "JSContext can't be instancied directly, please call JSRuntime::createContext", 0 TSRMLS_CC);
-}
-/* }}} */
-
-/* {{{ proto public void JSContext::__destruct()
-   Destroy context and free up memory */
-PHP_METHOD(JSContext, __destruct)
-{
-	php_jscontext_object *intern;
-
-	/* retrieve this class from the store */
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-
-#if ((PHP_MAJOR_VERSION > 5) || (PHP_MAJOR_VERSION == 5) && (PHP_MINOR_VERSION >= 3))
-	Z_DELREF_P(intern->rt_z);
-#else
-	ZVAL_DELREF(intern->rt_z);
-#endif
-
-	/* if a context is found ( which should be the case )
-	 * destroy it
-	 */
-	if (intern->ct != (JSContext*)NULL)
-		JS_DestroyContext(intern->ct);
-
-	intern->rt = NULL;
+	//zend_throw_exception(zend_exception_get_default(TSRMLS_C), "JSContext can't be instancied directly, please call JSRuntime::createContext", 0 TSRMLS_CC);
 }
 /* }}} */
 
