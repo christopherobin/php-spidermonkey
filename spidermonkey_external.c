@@ -79,6 +79,132 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	return JS_TRUE;
 }
 
+/* this native is used for class constructors */
+JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+	JSString				*str;
+	JSFunction				*class;
+	JSString				*jclass_name;
+	char					*class_name;
+	zval					***params, *retval_ptr;
+	zend_class_entry		*ce, **pce;
+	zval					*cobj;
+
+	php_jscontext_object	*intern;
+	php_jsobject_ref		*jsref;
+	int						i;
+
+	if (!JS_IsConstructing(cx))
+	{
+		// throw exception
+		return JS_FALSE;
+	}
+
+	/* first retrieve class name */
+	class = JS_ValueToFunction(cx, ((argv)[-2]));
+	jclass_name = JS_GetFunctionId(class);
+	class_name = JS_GetStringBytes(jclass_name);
+
+	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
+
+	/* search for class entry */
+	if (zend_hash_find(intern->ec_ht, class_name, strlen(class_name), (void**)&pce) == FAILURE) {
+		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
+	}
+
+	/* retrieve pointer to ce */
+	ce = *pce;
+
+	/* create object */
+	MAKE_STD_ZVAL(cobj);
+
+	if (ce->constructor)
+	{
+		zend_fcall_info			fci;
+		zend_fcall_info_cache	fcc;
+
+		if (!(ce->constructor->common.fn_flags & ZEND_ACC_PUBLIC)) {
+			zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Access to non-public constructor of class %s", class_name);
+		}
+
+		object_init_ex(cobj, ce);
+
+		/* ready parameters */
+		params = emalloc(argc * sizeof(zval**));
+		for (i = 0; i < argc; i++)
+		{
+			zval **val = emalloc(sizeof(zval*));
+			MAKE_STD_ZVAL(*val);
+			jsval_to_zval(*val, cx, &argv[i]);
+			params[i] = val;
+		}
+
+		fci.size			= sizeof(fci);
+		fci.function_table	= EG(function_table);
+		fci.function_name	= NULL;
+		fci.symbol_table	= NULL;
+		fci.object_ptr		= cobj;
+		fci.retval_ptr_ptr	= &retval_ptr;
+		fci.params			= params;
+		fci.param_count		= argc;
+		fci.no_separation	= 1;
+
+		fcc.initialized		= 1;
+		fcc.function_handler= ce->constructor;
+		fcc.calling_scope	= EG(scope);
+		fcc.called_scope	= Z_OBJCE_P(cobj);
+		fcc.object_ptr		= cobj;
+
+		if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE)
+		{
+			/* call ended, clean */
+			for (i = 0; i < argc; i++)
+			{
+				zval **eval;
+				eval = params[i];
+				zval_ptr_dtor(eval);
+				efree(eval);
+			}
+			if (retval_ptr) {
+				zval_ptr_dtor(&retval_ptr);
+			}
+			efree(params);
+			zval_ptr_dtor(&cobj);
+			// TODO: failed
+			*rval = JSVAL_VOID;
+			return JS_FALSE;
+		}
+
+		/* call ended, clean */
+		for (i = 0; i < argc; i++)
+		{
+			zval **eval;
+			eval = params[i];
+			zval_ptr_dtor(eval);
+			efree(eval);
+		}
+
+		if (retval_ptr)
+		{
+			zval_ptr_dtor(&retval_ptr);
+		}
+
+		zval_to_jsval(cobj, cx, rval);
+	
+		efree(params);
+	}
+	else
+	{
+		object_init_ex(cobj, ce);
+		zval_to_jsval(cobj, cx, rval);
+	}
+
+	zval_ptr_dtor(&cobj);
+
+	return JS_TRUE;
+}
+
+
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 {
 	php_jsobject_ref		*jsref;

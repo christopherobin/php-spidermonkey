@@ -56,6 +56,8 @@ typedef struct _php_jscontext_object  {
 	zend_object				zo;
 	zval					*rt_z;
 	php_jsobject_ref		*jsref;
+	/* exported class list */
+	HashTable				*ec_ht;
 	/* Javascript related stuff */
 	JSContext				*ct;
 	JSClass					script_class;
@@ -77,6 +79,7 @@ PHP_MINFO_FUNCTION(spidermonkey);
 PHP_METHOD(JSContext,   __construct);
 PHP_METHOD(JSContext,	evaluateScript);
 PHP_METHOD(JSContext,   registerFunction);
+PHP_METHOD(JSContext,   registerClass);
 PHP_METHOD(JSContext,   assign);
 PHP_METHOD(JSContext,   setOptions);
 PHP_METHOD(JSContext,   toggleOptions);
@@ -93,6 +96,7 @@ PHP_METHOD(JSContext,   getVersionString);
  * struct in JSContext's constructor
  */
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 /* }}} */
 
 /* Methods used/exported in JS */

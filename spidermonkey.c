@@ -29,6 +29,7 @@ static function_entry php_spidermonkey_jsc_functions[] = {
 	PHP_ME(JSContext, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(JSContext, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(JSContext, registerClass, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, assign, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, setOptions, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, toggleOptions, NULL, ZEND_ACC_PUBLIC)
@@ -50,6 +51,12 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 	 */
 	if (intern->ct != (JSContext*)NULL)
 		JS_DestroyContext(intern->ct);
+
+	if (intern->ec_ht != NULL)
+	{
+		zend_hash_destroy(intern->ec_ht);
+		efree(intern->ec_ht);
+	}
 
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
@@ -75,6 +82,10 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	{
 		SPIDERMONKEY_G(rt) = JS_NewRuntime(PHP_JSRUNTIME_GC_MEMORY_THRESHOLD);
 	}
+
+	/* exported classes hashlist */
+	intern->ec_ht = (HashTable*)emalloc(sizeof(HashTable));
+	zend_hash_init(intern->ec_ht, 20, NULL, NULL, 0);
 
 	/* prepare hashtable for callback storage */
 	intern->jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));

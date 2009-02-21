@@ -44,6 +44,50 @@ PHP_METHOD(JSContext, registerFunction)
 }
 /* }}} */
 
+/* {{{ proto public bool JSContext::registerClass(string class_name [, string exported_name ])
+   Register a PHP function in a Javascript context allowing a script to call it*/
+PHP_METHOD(JSContext, registerClass)
+{
+	char					*class_name = NULL;
+	int						class_name_len = 0;
+	char					*exported_name = NULL;
+	int						exported_name_len = 0;
+	php_jscontext_object	*intern;
+	zend_class_entry		*ce = NULL;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &class_name, &class_name_len, &exported_name, &exported_name_len) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	/* retrieve this class from the store */
+	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (class_name_len) {
+		zend_class_entry **pce;
+		if (zend_lookup_class(class_name, class_name_len, &pce TSRMLS_CC) == FAILURE) {
+			if (!EG(exception)) {
+				zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Class %s doesn't exists !", class_name);
+				return;
+			}
+		}
+		ce = *pce;
+	}
+
+	/* TODO: error management is needed here, we should throw an exception if the "name" entry
+	 *        already exists */
+	if (exported_name != NULL) {
+		zend_hash_add(intern->ec_ht, exported_name, exported_name_len, &ce, sizeof(zend_class_entry**), NULL);
+		JS_DefineFunction(intern->ct, intern->obj, exported_name, generic_constructor, 1, 0);
+	}
+	else {
+		zend_hash_add(intern->ec_ht, class_name, class_name_len, &ce, sizeof(zend_class_entry**), NULL);
+		JS_DefineFunction(intern->ct, intern->obj, class_name, generic_constructor, 1, 0);
+	}
+
+}
+/* }}} */
+
+
 /* {{{ proto public bool JSContext::registerFunction(string name, callback function)
    Register a PHP function in a Javascript context allowing a script to call it*/
 PHP_METHOD(JSContext, assign)
