@@ -9,6 +9,20 @@ void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 	zend_throw_exception(zend_exception_get_default(TSRMLS_C), message, 0 TSRMLS_CC);
 }
 
+/* this function set a property on an object */
+void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val)
+{
+	jsval 					jval;
+	php_jsobject_ref		*jsref;
+	php_jscontext_object	*intern;
+
+	/* first convert zval to jsval */
+	zval_to_jsval(val, ctx, &jval);
+
+	/* no ref behavior, just set a property */
+	JS_SetProperty(ctx, obj, property_name, &jval);
+}
+
 /* all function calls are mapped through this unique function */
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
@@ -96,7 +110,6 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 
 	if (!JS_IsConstructing(cx))
 	{
-		// throw exception
 		return JS_FALSE;
 	}
 
@@ -170,7 +183,7 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 			}
 			efree(params);
 			zval_ptr_dtor(&cobj);
-			// TODO: failed
+			/* TODO: failed */
 			*rval = JSVAL_VOID;
 			return JS_FALSE;
 		}
@@ -204,6 +217,41 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 	return JS_TRUE;
 }
 
+JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsval id)
+{
+	/* always return true, as PHP doesn't use any resolver */
+	return JS_TRUE;
+}
+
+JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
+{
+	php_jsobject_ref		*jsref;
+	php_jscontext_object	*intern;
+	jsval					js_propname;
+
+	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+
+	if (jsref != NULL)
+	{
+		if (jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_OBJECT) {
+			JSString *str;
+			char *prop_name;
+			zval *val;
+
+			str = JS_ValueToString(cx, id);
+			prop_name = JS_GetStringBytes(str);
+
+			MAKE_STD_ZVAL(val);
+			jsval_to_zval(val, cx, vp);
+
+			zend_update_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), val);
+			zval_ptr_dtor(&val);
+		}
+	}
+
+	return JS_TRUE;
+}
 
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 {
@@ -213,33 +261,26 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
 
-	if (jsref != NULL)
-	{
-		if (jsref->obj != NULL)
-		{
-			jsval js_propname;
-			if (JS_IdToValue(cx, id, &js_propname) == JS_TRUE)
-			{
-				zval *val;
-				JSString *str;
-				jsval item_val;
-				char *prop_name;
+	if (jsref != NULL) {
+		if (jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_OBJECT) {
+			JSString *str;
+			char *prop_name;
 
-				str = JS_ValueToString(cx, js_propname);
-				prop_name = JS_GetStringBytes(str);
-				php_printf("reading property: %s\n", prop_name);
+			str = JS_ValueToString(cx, id);
+			prop_name = JS_GetStringBytes(str);
 
-				if (zend_hash_find(Z_OBJPROP_P(jsref->obj), prop_name, sizeof(prop_name), (void**)&val) == FAILURE) {
-					/* $rcvdclass->foo doesn't exist */
-					return JS_TRUE;
-				}
+			zval *val = NULL;
+			val = zend_read_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), 1 TSRMLS_CC);
 
-				zval_to_jsval(val, cx, vp);
+			if (val != EG(uninitialized_zval_ptr)) {
+				zval_add_ref(&val);
+				zval_to_jsval(val, cx, vp);	
+				zval_ptr_dtor(&val);
 				return JS_TRUE;
 			}
 		}
 	}
-
+	
 	return JS_TRUE;
 }
 
@@ -256,7 +297,7 @@ void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 	/* destroy ref object */
 	if (jsref != NULL)
 	{
-		/* free the hash table */
+		/* free the functions hash table */
 		if (jsref->ht != NULL)
 		{
 			/* because we made a zval for each function callback, parse the whole
@@ -282,7 +323,7 @@ void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 			}
 			/* destroy hashtable */
 			zend_hash_destroy(jsref->ht);
-			efree(jsref->ht);
+			FREE_HASHTABLE(jsref->ht);
 		}
 
 		/* remove reference to object and call ptr dtor */

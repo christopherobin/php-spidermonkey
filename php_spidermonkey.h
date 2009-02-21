@@ -47,7 +47,9 @@ typedef struct _php_callback {
 
 /* Used by JSObject to refer to their parent object */
 typedef struct _php_jsobject_ref {
+	/* contain the function list for this object */
 	HashTable				*ht;
+	/* contain the original resource/object this JSObject was created from */
 	zval					*obj;
 } php_jsobject_ref;
 
@@ -68,6 +70,7 @@ extern zend_class_entry *php_spidermonkey_jsc_entry;
 
 /* this method defined in spidermonkey.c allow us to convert a jsval
  * to a zval for PHP use */
+void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val);
 void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval);
 void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval);
 
@@ -102,6 +105,8 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 /* Methods used/exported in JS */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report);
 void JS_FinalizePHP(JSContext *cx, JSObject *obj);
+JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsval id);
+JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
 
 /* Define the entry point symbol

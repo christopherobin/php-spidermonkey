@@ -9,4 +9,8 @@ php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/version.
 echo
 echo "**** Running callback system tests ****"
 echo "php -n -d extension_dir=modules/ -d extension=spidermonkey.so -d extension=curl.so mod_tests/callback.php"
-php -n -d extension_dir=modules/ -d extension=spidermonkey.so -d extension=curl.so mod_tests/callback.php
+php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/callback.php
+echo
+echo "**** Running reference system tests ****"
+echo "php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/reference.php"
+php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/reference.php

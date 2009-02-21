@@ -55,7 +55,7 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 	if (intern->ec_ht != NULL)
 	{
 		zend_hash_destroy(intern->ec_ht);
-		efree(intern->ec_ht);
+		FREE_HASHTABLE(intern->ec_ht);
 	}
 
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
@@ -84,13 +84,15 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	}
 
 	/* exported classes hashlist */
-	intern->ec_ht = (HashTable*)emalloc(sizeof(HashTable));
+	ALLOC_HASHTABLE(intern->ec_ht);
 	zend_hash_init(intern->ec_ht, 20, NULL, NULL, 0);
 
 	/* prepare hashtable for callback storage */
 	intern->jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
-	intern->jsref->ht = (HashTable*)emalloc(sizeof(HashTable));
+	/* create callback hashtable */
+	ALLOC_HASHTABLE(intern->jsref->ht);
 	zend_hash_init(intern->jsref->ht, 50, NULL, NULL, 0);
+	/* the global object doesn't have any zval */
 	intern->jsref->obj = NULL;
 
 	intern->ct = JS_NewContext(SPIDERMONKEY_G(rt), 8092);
@@ -103,15 +105,14 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* Mandatory non-null function pointer members. */
 	intern->script_class.addProperty	= JS_PropertyStub;
 	intern->script_class.delProperty	= JS_PropertyStub;
-	intern->script_class.getProperty	= JS_PropertyStub;
 	/* this getter doesn't work yet, waiting for spidermonkey
 	 * 1.8.0 which should be out next week */
-	/* intern->script_class.getProperty	= JS_PropertyGetterPHP; */
-	intern->script_class.setProperty	= JS_PropertyStub;
-	intern->script_class.enumerate		= JS_EnumerateStub;
-	intern->script_class.resolve		= JS_ResolveStub;
-	intern->script_class.convert		= JS_ConvertStub;
+	intern->script_class.getProperty	= JS_PropertyGetterPHP;
+	intern->script_class.setProperty	= JS_PropertySetterPHP;
+	intern->script_class.resolve		= JS_ResolvePHP;
 	intern->script_class.finalize		= JS_FinalizePHP;
+	intern->script_class.enumerate		= JS_EnumerateStub;
+	intern->script_class.convert		= JS_ConvertStub;
 
 	/* Optionally non-null members start here. */
 	intern->script_class.getObjectOps	= 0;
@@ -386,14 +387,10 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 			/* create JSObject */
 			jobj = JS_NewObject(ctx, &intern->script_class, NULL, NULL);
-			/* retrieve class entry */
-			ce = Z_OBJCE_P(val);
-			/* get function table */
-			ht = &ce->function_table;
 
 			jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
 			/* intern hashtable for function storage */
-			jsref->ht = (HashTable*)emalloc(sizeof(HashTable));
+			ALLOC_HASHTABLE(jsref->ht);
 			zend_hash_init(jsref->ht, 50, NULL, NULL, 0);
 			/* store pointer to object */
 			SEPARATE_ARG_IF_REF(val);
@@ -401,6 +398,10 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
 
+			/* retrieve class entry */
+			ce = Z_OBJCE_P(val);
+			/* get function table */
+			ht = &ce->function_table;
 			/* foreach functions */
 			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
 			{
@@ -459,7 +460,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				uint keylen;
 				ulong idx;
 				int type;
-				zval **ppzval, tmpcopy;
+				zval **ppzval;
 				jsval jival;
 				char intIdx[25];
 
@@ -471,22 +472,15 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 					continue;
 				}
 
-				/* Duplicate the zval so that
-				 * the orignal's contents are not destroyed */
-				tmpcopy = **ppzval;
-				zval_copy_ctor(&tmpcopy);
-				zval_to_jsval(&tmpcopy, ctx, &jival);
 				if (type == HASH_KEY_IS_LONG)
 				{
 					sprintf(intIdx, "%d", idx);
-					JS_SetProperty(ctx, jobj, intIdx, &jival);
+					php_jsobject_set_property(ctx, jobj, intIdx, *ppzval);
 				}
 				else
 				{
-					JS_SetProperty(ctx, jobj, key, &jival);
+					php_jsobject_set_property(ctx, jobj, key, *ppzval);
 				}
-
-				zval_dtor(&tmpcopy);
 			}
 			
 			*jval = OBJECT_TO_JSVAL(jobj);

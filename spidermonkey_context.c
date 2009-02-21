@@ -21,12 +21,12 @@ PHP_METHOD(JSContext, __construct)
    Register a PHP function in a Javascript context allowing a script to call it*/
 PHP_METHOD(JSContext, registerFunction)
 {
-	char					*name;
-	int						name_len;
+	char					*name = NULL;
+	int						name_len = 0;
 	php_callback			callback;
 	php_jscontext_object	*intern;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &name, &name_len, &callback.fci, &callback.fci_cache) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "f|s", &callback.fci, &callback.fci_cache, &name, &name_len) == FAILURE) {
 		RETURN_NULL();
 	}
 
@@ -37,8 +37,12 @@ PHP_METHOD(JSContext, registerFunction)
 
 	/* TODO: error management is needed here, we should throw an exception if the "name" entry
 	 *        already exists */
-	zend_hash_add(intern->jsref->ht, name, name_len, &callback, sizeof(callback), NULL);
+	if (name == NULL) {
+		name		= Z_STRVAL_P(callback.fci.function_name);
+		name_len	= Z_STRLEN_P(callback.fci.function_name);
+	}
 
+	zend_hash_add(intern->jsref->ht, name, name_len, &callback, sizeof(callback), NULL);
 	JS_DefineFunction(intern->ct, intern->obj, name, generic_call, 1, 0);
 
 }
@@ -88,13 +92,13 @@ PHP_METHOD(JSContext, registerClass)
 /* }}} */
 
 
-/* {{{ proto public bool JSContext::registerFunction(string name, callback function)
-   Register a PHP function in a Javascript context allowing a script to call it*/
+/* {{{ proto public bool JSContext::assign(string name, mixed value)
+   Register a value in Javascript's global scope*/
 PHP_METHOD(JSContext, assign)
 {
 	char					*name;
 	int						name_len;
-	zval					*val;
+	zval					*val = NULL;
 	php_jscontext_object	*intern;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &name, &name_len, &val) == FAILURE) {
@@ -103,11 +107,7 @@ PHP_METHOD(JSContext, assign)
 
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-
-	jsval ival;
-	zval_to_jsval(val, intern->ct, &ival);
-
-	JS_SetProperty(intern->ct, intern->obj, name, &ival);
+	php_jsobject_set_property(intern->ct, intern->obj, name, val);
 }
 /* }}} */
 
@@ -135,12 +135,13 @@ PHP_METHOD(JSContext, evaluateScript)
 	{
 		/* The script evaluated fine, convert the return value to PHP */
 		jsval_to_zval(return_value, intern->ct, &rval);
+		/* run garbage collection */
+		JS_MaybeGC(intern->ct);
 	}
 	else
 	{
 		RETURN_FALSE;
 	}
-
 }
 /* }}} */
 
