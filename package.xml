@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://pear.php.net/dtd/package-2.0" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" packagerversion="1.4.7" version="2.0" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0 http://pear.php.net/dtd/tasks-1.0.xsd http://pear.php.net/dtd/package-2.0 http://pear.php.net/dtd/package-2.0.xsd">
+  <name>spidermonkey</name>
+  <channel>pecl.php.net</channel>
+  <summary>JavaScript engine for PHP</summary>
+  <description>
+  Bla bla
+</description>
+  <lead>
+    <name>Christophe Robin</name>
+    <user>crobin</user>
+    <email>...</email>
+    <active>yes</active>
+  </lead>
+  <date>2009-02-22</date>
+  <version>
+    <release>0.8dev</release><api>0.8dev</api>
+  </version>
+  <stability>
+    <release>alpha</release><api>alpha</api>
+  </stability>
+  <license uri="http://www.php.net/license">PHP License</license>
+  <notes>
+ - Created package.xml
+</notes>
+  <contents>
+    <dir name="/">
+      <file name="LICENSE" role="doc"/>
+      <file name="config.m4" role="src"/>
+      <file name="spidermonkey.c" role="src"/>
+      <file name="spidermonkey_context.c" role="src"/>
+      <file name="spidermonkey_external.c" role="src"/>
+      <file name="spidermonkey_strings.c" role="src"/>
+      <file name="php_spidermonkey.h" role="src">
+        <tasks:replace from="@PACKAGE_VERSION@" to="version" type="package-info" />
+      </file>
+    </dir>
+  </contents>
+  <dependencies>
+    <required>
+      <php>
+        <min>5.3.0</min>
+      </php>
+      <pearinstaller>
+        <min>1.4.0</min>
+      </pearinstaller>
+    </required>
+  </dependencies>
+  <providesextension>spidermonkey</providesextension>
+  <extsrcrelease/>
+ <changelog>
+   <release>
+     <stability><release>alpha</release><api>alpha</api></stability>
+     <version><release>0.7</release><api>0.7</api></version>
+     <date>2009-01-30</date>
+     <notes>
+ - Old version example
+     </notes>
+    </release>
+  </changelog>
+</package>
