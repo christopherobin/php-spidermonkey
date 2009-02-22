@@ -29,16 +29,19 @@ fputs(stdin, "bleh ?" + PHP_EOL);
 
 printf(PHP_EOL + '******** COMPLEX RESOURCE TEST ********' + PHP_EOL)
 
-ch = fopen('http://wimip.fr/?t=', 'r');
+ch = fopen('{$file}', 'r')
 if (ch) {
-	ch.read = function() { return fgets(this) }
+	ch.seek(-10, ch.SEEK_END)
 	while (data = ch.read()) {
-		printf(data)
+		printf("%s" + PHP_EOL, data)
 	}
 }
-printf(PHP_EOL);
+
 SCR;
 $b->assign('stdin', STDIN);
 $b->assign('PHP_EOL', PHP_EOL);
 $b->evaluateScript($script);
+
+// just for statistics
+var_dump(memory_get_usage(true));
 

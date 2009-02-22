@@ -26,7 +26,6 @@ ZEND_GET_MODULE(spidermonkey)
 ********************************/
 
 static function_entry php_spidermonkey_jsc_functions[] = {
-	PHP_ME(JSContext, __construct, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
 	PHP_ME(JSContext, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerClass, NULL, ZEND_ACC_PUBLIC)
@@ -281,48 +280,54 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 		php_jscontext_object	*intern;
 		php_jsobject_ref		*jsref;
 
-		JS_ValueToObject(ctx, rval, &obj);
-		intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
-
-		if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == 0 || jsref->obj == NULL)
+		if (JS_ValueToObject(ctx, rval, &obj) == JS_TRUE)
 		{
-			/* create stdClass */
-			object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
+			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 
-			/* then iterate on each property */
-			it = JS_Enumerate(ctx, obj);
-
-			for (i = 0; i < it->length; i++)
+			if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == NULL || jsref->obj == NULL)
 			{
-				jsval val;
-				jsid id = it->vector[i];
-				if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
+				/* create stdClass */
+				object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
+
+				/* then iterate on each property */
+				it = JS_Enumerate(ctx, obj);
+
+				for (i = 0; i < it->length; i++)
 				{
-					JSString *str;
-					jsval item_val;
-
-					str = JS_ValueToString(ctx, val);
-
-					if (js_GetProperty(ctx, obj, id, &item_val) == JS_TRUE)
+					jsval val;
+					jsid id = it->vector[i];
+					if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
 					{
-						zval *fval;
-						char *name;
+						JSString *str;
+						jsval item_val;
 
-						/* Retrieve property name */
-						name = JS_GetStringBytes(str);
+						str = JS_ValueToString(ctx, val);
 
-						MAKE_STD_ZVAL(fval);
-						/* Call this function to convert a jsval to a zval */
-						jsval_to_zval(fval, ctx, &item_val);
-						/* Add property to our stdClass */
-						zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
-						/* Destroy pointer to zval */
-						zval_ptr_dtor(&fval);
+						if (js_GetProperty(ctx, obj, id, &item_val) == JS_TRUE)
+						{
+							zval *fval;
+							char *name;
+
+							/* Retrieve property name */
+							name = JS_GetStringBytes(str);
+
+							MAKE_STD_ZVAL(fval);
+							/* Call this function to convert a jsval to a zval */
+							jsval_to_zval(fval, ctx, &item_val);
+							/* Add property to our stdClass */
+							zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
+							/* Destroy pointer to zval */
+							zval_ptr_dtor(&fval);
+						}
 					}
 				}
-			}
 
-			JS_DestroyIdArray(ctx, it);
+				JS_DestroyIdArray(ctx, it);
+			}
+			else
+			{
+				RETVAL_ZVAL(jsref->obj, 0, NULL);
+			}
 		}
 		else
 		{
@@ -378,6 +383,26 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			SEPARATE_ARG_IF_REF(val);
 			jsref->ht = NULL;
 			jsref->obj = val;
+			/* auto define functions for stream */
+			php_stream *stream;
+			php_stream_from_zval_no_verify(stream, &val);
+
+			if (stream != NULL) {
+				/* set a bunch of constants */
+				jsval js_const;
+				js_const = INT_TO_JSVAL(SEEK_SET);
+				JS_SetProperty(ctx, jobj, "SEEK_SET", &js_const);
+				js_const = INT_TO_JSVAL(SEEK_CUR);
+				JS_SetProperty(ctx, jobj, "SEEK_CUR", &js_const);
+				js_const = INT_TO_JSVAL(SEEK_END);
+				JS_SetProperty(ctx, jobj, "SEEK_END", &js_const);
+				/* set stream functions */
+				JS_DefineFunction(ctx, jobj, "read", js_stream_read, 1, 0);
+				JS_DefineFunction(ctx, jobj, "getline", js_stream_getline, 1, 0);
+				JS_DefineFunction(ctx, jobj, "getl", js_stream_getline, 1, 0);
+				JS_DefineFunction(ctx, jobj, "seek", js_stream_seek, 1, 0);
+				JS_DefineFunction(ctx, jobj, "write", js_stream_write, 1, 0);
+			}
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
 			

@@ -8,7 +8,7 @@ echo "php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/ve
 php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/version.php
 echo
 echo "**** Running callback system tests ****"
-echo "php -n -d extension_dir=modules/ -d extension=spidermonkey.so -d extension=curl.so mod_tests/callback.php"
+echo "php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/callback.php"
 php -n -d extension_dir=modules/ -d extension=spidermonkey.so mod_tests/callback.php
 echo
 echo "**** Running reference system tests ****"

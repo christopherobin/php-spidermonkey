@@ -79,7 +79,6 @@ PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);
 PHP_MINFO_FUNCTION(spidermonkey);
 /* JSContext methods */
-PHP_METHOD(JSContext,   __construct);
 PHP_METHOD(JSContext,	evaluateScript);
 PHP_METHOD(JSContext,   registerFunction);
 PHP_METHOD(JSContext,   registerClass);
@@ -100,6 +99,11 @@ PHP_METHOD(JSContext,   getVersionString);
  */
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+/* streams */
+JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 /* }}} */
 
 /* Methods used/exported in JS */

@@ -47,6 +47,6 @@ if test "$PHP_SPIDERMONKEY" != "no"; then
   PHP_ADD_INCLUDE($SPIDERMONKEY_INCDIR)
   PHP_SUBST(SPIDERMONKEY_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(spidermonkey, spidermonkey.c spidermonkey_context.c spidermonkey_external.c, $ext_shared)
+  PHP_NEW_EXTENSION(spidermonkey, spidermonkey.c spidermonkey_context.c spidermonkey_external.c spidermonkey_streams.c, $ext_shared)
 fi
 

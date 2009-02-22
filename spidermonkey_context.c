@@ -7,16 +7,6 @@ static int le_jscontext_descriptor;
  */
 zend_class_entry *php_spidermonkey_jsc_entry;
 
-/* {{{ proto public JSContext::__construct(JSRuntime $runtime)
-   JSContext's constructor, expect a JSRuntime, you should use
-   JSRuntime::createContext */
-PHP_METHOD(JSContext, __construct)
-{
-	/* prevent creating this object */
-	//zend_throw_exception(zend_exception_get_default(TSRMLS_C), "JSContext can't be instancied directly, please call JSRuntime::createContext", 0 TSRMLS_CC);
-}
-/* }}} */
-
 /* {{{ proto public bool JSContext::registerFunction(string name, callback function)
    Register a PHP function in a Javascript context allowing a script to call it*/
 PHP_METHOD(JSContext, registerFunction)
