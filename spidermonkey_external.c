@@ -1,3 +1,23 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 5                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 2009 The PHP Group                                     |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 3.01 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_01.txt                                  |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author: Christophe Robin <crobin@php.net>                            |
+  +----------------------------------------------------------------------+
+
+  $Id$ 
+*/
+
 #include "php_spidermonkey.h"
 #include "jsobj.h"
 
@@ -5,19 +25,20 @@
 /* TODO: change that to an exception */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 {
+	TSRMLS_FETCH();
 	/* throw error */
 	zend_throw_exception(zend_exception_get_default(TSRMLS_C), message, 0 TSRMLS_CC);
 }
 
 /* this function set a property on an object */
-void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val)
+void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val TSRMLS_DC)
 {
 	jsval 					jval;
 	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 
 	/* first convert zval to jsval */
-	zval_to_jsval(val, ctx, &jval);
+	zval_to_jsval(val, ctx, &jval TSRMLS_CC);
 
 	/* no ref behavior, just set a property */
 	JS_SetProperty(ctx, obj, property_name, &jval);
@@ -26,6 +47,7 @@ void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_nam
 /* all function calls are mapped through this unique function */
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
+	TSRMLS_FETCH();
 	JSString				*str;
 	JSFunction				*func;
 	JSString				*jfunc_name;
@@ -59,7 +81,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	{
 		zval **val = emalloc(sizeof(zval*));
 		MAKE_STD_ZVAL(*val);
-		jsval_to_zval(*val, cx, &argv[i]);
+		jsval_to_zval(*val, cx, &argv[i] TSRMLS_CC);
 		params[i] = val;
 	}
 
@@ -80,7 +102,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 
 	if (retval_ptr)
 	{
-		zval_to_jsval(retval_ptr, cx, rval);
+		zval_to_jsval(retval_ptr, cx, rval TSRMLS_CC);
 		zval_ptr_dtor(&retval_ptr);
 	}
 	else
@@ -96,6 +118,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 /* this native is used for class constructors */
 JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
+	TSRMLS_FETCH();
 	JSString				*str;
 	JSFunction				*class;
 	JSString				*jclass_name;
@@ -148,7 +171,7 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 		{
 			zval **val = emalloc(sizeof(zval*));
 			MAKE_STD_ZVAL(*val);
-			jsval_to_zval(*val, cx, &argv[i]);
+			jsval_to_zval(*val, cx, &argv[i] TSRMLS_CC);
 			params[i] = val;
 		}
 
@@ -202,14 +225,14 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 			zval_ptr_dtor(&retval_ptr);
 		}
 
-		zval_to_jsval(cobj, cx, rval);
+		zval_to_jsval(cobj, cx, rval TSRMLS_CC);
 	
 		efree(params);
 	}
 	else
 	{
 		object_init_ex(cobj, ce);
-		zval_to_jsval(cobj, cx, rval);
+		zval_to_jsval(cobj, cx, rval TSRMLS_CC);
 	}
 
 	zval_ptr_dtor(&cobj);
@@ -225,6 +248,7 @@ JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsval id)
 
 JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 {
+	TSRMLS_FETCH();
 	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 	jsval					js_propname;
@@ -243,9 +267,9 @@ JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 			prop_name = JS_GetStringBytes(str);
 
 			MAKE_STD_ZVAL(val);
-			jsval_to_zval(val, cx, vp);
+			jsval_to_zval(val, cx, vp TSRMLS_CC);
 
-			zend_update_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), val);
+			zend_update_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), val TSRMLS_CC);
 			zval_ptr_dtor(&val);
 		}
 	}
@@ -255,6 +279,7 @@ JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 {
+	TSRMLS_FETCH();
 	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 
@@ -274,7 +299,7 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 
 			if (val != EG(uninitialized_zval_ptr)) {
 				zval_add_ref(&val);
-				zval_to_jsval(val, cx, vp);	
+				zval_to_jsval(val, cx, vp TSRMLS_CC);
 				zval_ptr_dtor(&val);
 				return JS_TRUE;
 			}
@@ -336,3 +361,12 @@ void JS_FinalizePHP(JSContext *cx, JSObject *obj)
 		efree(jsref);
 	}
 }
+
+/*
+ * Local Variables:
+ * c-basic-offset: 4
+ * tab-width: 4
+ * End:
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
+ */

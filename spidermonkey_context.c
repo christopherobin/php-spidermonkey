@@ -1,3 +1,23 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 5                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 2009 The PHP Group                                     |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 3.01 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_01.txt                                  |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author: Christophe Robin <crobin@php.net>                            |
+  +----------------------------------------------------------------------+
+
+  $Id$ 
+*/
+
 #include "php_spidermonkey.h"
 
 static int le_jscontext_descriptor;
@@ -97,7 +117,7 @@ PHP_METHOD(JSContext, assign)
 
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	php_jsobject_set_property(intern->ct, intern->obj, name, val);
+	php_jsobject_set_property(intern->ct, intern->obj, name, val TSRMLS_CC);
 }
 /* }}} */
 
@@ -124,7 +144,7 @@ PHP_METHOD(JSContext, evaluateScript)
 	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, NULL, 0, &rval) == JS_TRUE)
 	{
 		/* The script evaluated fine, convert the return value to PHP */
-		jsval_to_zval(return_value, intern->ct, &rval);
+		jsval_to_zval(return_value, intern->ct, &rval TSRMLS_CC);
 		/* run garbage collection */
 		JS_MaybeGC(intern->ct);
 	}

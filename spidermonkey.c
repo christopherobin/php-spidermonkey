@@ -1,3 +1,23 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 5                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 2009 The PHP Group                                     |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 3.01 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_01.txt                                  |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author: Christophe Robin <crobin@php.net>                            |
+  +----------------------------------------------------------------------+
+
+  $Id$ 
+*/
+
 #include "php_spidermonkey.h"
 
 static int le_jscontext_descriptor;
@@ -99,7 +119,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* The script_class is a global object used by PHP to allow function register */
 	intern->script_class.name			= "PHPclass";
-	intern->script_class.flags			= JSCLASS_GLOBAL_FLAGS;
+	intern->script_class.flags			= JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE;
 
 	/* Mandatory non-null function pointer members. */
 	intern->script_class.addProperty	= JS_PropertyStub;
@@ -184,8 +204,10 @@ PHP_MINIT_FUNCTION(spidermonkey)
 
 	/*  CLASS INIT */
 #ifdef ZTS
-	ts_allocate_id(&spidermonkey_globals_id, sizeof(spidermonkey_globals), NULL, NULL);
+	/*ts_allocate_id(&spidermonkey_globals_id, sizeof(spidermonkey_globals), NULL, NULL);*/
+	ZEND_INIT_MODULE_GLOBALS(spidermonkey, NULL, NULL);
 #endif
+
 	SPIDERMONKEY_G(rt) = NULL;
 
 	/* here we set handlers to zero, meaning that we have no handlers set */
@@ -221,11 +243,13 @@ PHP_MINFO_FUNCTION(spidermonkey)
 }
 
 /* convert a given jsval in a context to a zval, for PHP access */
-void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
+void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 {
 	jsval   rval;
 
-	memcpy(&rval, jval, sizeof(jsval));
+
+	//memcpy(&rval, jval, sizeof(jsval));
+	rval = *jval;
 
 	/* if it's a number or double, convert to double */
 	if (JSVAL_IS_NUMBER(rval) || JSVAL_IS_DOUBLE(rval))
@@ -274,7 +298,7 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 	else if (JSVAL_IS_OBJECT(rval))
 	{
 		JSIdArray				*it;
-		JSObject				*obj;
+		JSObject				*obj = NULL;
 		jsid					*idp;
 		int						i;
 		php_jscontext_object	*intern;
@@ -313,7 +337,7 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 
 							MAKE_STD_ZVAL(fval);
 							/* Call this function to convert a jsval to a zval */
-							jsval_to_zval(fval, ctx, &item_val);
+							jsval_to_zval(fval, ctx, &item_val TSRMLS_CC);
 							/* Add property to our stdClass */
 							zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
 							/* Destroy pointer to zval */
@@ -331,7 +355,7 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 		}
 		else
 		{
-			RETVAL_ZVAL(jsref->obj, 0, NULL);
+			RETVAL_NULL();
 		}
 	}
 	else if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
@@ -343,7 +367,7 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval)
 }
 
 /* convert a given jsval in a context to a zval, for PHP access */
-void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
+void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 {
 	JSString				*jstr;
 	JSObject				*jobj;
@@ -354,7 +378,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 	php_jsobject_ref		*jsref;
 
 	if (val == NULL) {
-		*jval = JSVAL_VOID;
+		*jval = JSVAL_NULL;
 		return;
 	}
 
@@ -403,6 +427,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				JS_DefineFunction(ctx, jobj, "seek", js_stream_seek, 1, 0);
 				JS_DefineFunction(ctx, jobj, "write", js_stream_write, 1, 0);
 			}
+
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
 			
@@ -417,8 +442,10 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 			/* intern hashtable for function storage */
 			ALLOC_HASHTABLE(jsref->ht);
 			zend_hash_init(jsref->ht, 50, NULL, NULL, 0);
-			/* store pointer to object */
+
 			SEPARATE_ARG_IF_REF(val);
+
+			/* store pointer to object */
 			jsref->obj = val;
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
@@ -500,11 +527,11 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 				if (type == HASH_KEY_IS_LONG)
 				{
 					sprintf(intIdx, "%d", idx);
-					php_jsobject_set_property(ctx, jobj, intIdx, *ppzval);
+					php_jsobject_set_property(ctx, jobj, intIdx, *ppzval TSRMLS_CC);
 				}
 				else
 				{
-					php_jsobject_set_property(ctx, jobj, key, *ppzval);
+					php_jsobject_set_property(ctx, jobj, key, *ppzval TSRMLS_CC);
 				}
 			}
 			

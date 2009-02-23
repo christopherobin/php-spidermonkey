@@ -4,15 +4,15 @@
   <channel>pecl.php.net</channel>
   <summary>JavaScript engine for PHP</summary>
   <description>
-  Bla bla
-</description>
+    This extension allow you to embed Mozilla's Javascript engine Spidermonkey in PHP.
+  </description>
   <lead>
     <name>Christophe Robin</name>
     <user>crobin</user>
-    <email>...</email>
+    <email>crobin@php.net</email>
     <active>yes</active>
   </lead>
-  <date>2009-02-22</date>
+  <date>2009-02-25</date>
   <version>
     <release>0.8dev</release><api>0.8dev</api>
   </version>
@@ -30,7 +30,7 @@
       <file name="spidermonkey.c" role="src"/>
       <file name="spidermonkey_context.c" role="src"/>
       <file name="spidermonkey_external.c" role="src"/>
-      <file name="spidermonkey_strings.c" role="src"/>
+      <file name="spidermonkey_streams.c" role="src"/>
       <file name="php_spidermonkey.h" role="src">
         <tasks:replace from="@PACKAGE_VERSION@" to="version" type="package-info" />
       </file>
@@ -51,10 +51,15 @@
  <changelog>
    <release>
      <stability><release>alpha</release><api>alpha</api></stability>
-     <version><release>0.7</release><api>0.7</api></version>
-     <date>2009-01-30</date>
+     <version><release>0.8dev</release><api>0.8dev</api></version>
+     <date>2009-02-25</date>
      <notes>
- - Old version example
+ - Compile in ZTS mode
+ - JSRuntime removed for easier usage
+ - Properties works on objects
+ - Allow to export classes
+ - Known issues:
+   * Using var_dump in JS corrupt the JS engine memory
      </notes>
     </release>
   </changelog>

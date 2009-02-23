@@ -31,10 +31,9 @@ printf(PHP_EOL + '******** COMPLEX RESOURCE TEST ********' + PHP_EOL)
 
 ch = fopen('{$file}', 'r')
 if (ch) {
-	ch.seek(-10, ch.SEEK_END)
-	while (data = ch.read()) {
-		printf("%s" + PHP_EOL, data)
-	}
+	ch.seek(-15, ch.SEEK_END)
+	data = ch.read(11)
+	printf("%s" + PHP_EOL, data)
 }
 
 SCR;
@@ -45,3 +44,4 @@ $b->evaluateScript($script);
 // just for statistics
 var_dump(memory_get_usage(true));
 
+/* hello world */
