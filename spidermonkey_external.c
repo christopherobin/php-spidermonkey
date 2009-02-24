@@ -19,7 +19,6 @@
 */
 
 #include "php_spidermonkey.h"
-#include "jsobj.h"
 
 /* The error reporter callback. */
 /* TODO: change that to an exception */
