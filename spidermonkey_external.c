@@ -82,6 +82,9 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 		zval **val = emalloc(sizeof(zval*));
 		MAKE_STD_ZVAL(*val);
 		jsval_to_zval(*val, cx, &argv[i] TSRMLS_CC);
+/*		if (Z_TYPE_PP(val) ==  IS_OBJECT) {
+			Z_ADDREF_PP(val);
+		}*/
 		params[i] = val;
 	}
 
@@ -96,7 +99,9 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	{
 		zval **eval;
 		eval = params[i];
-		zval_ptr_dtor(eval);
+		if (Z_TYPE_PP(eval) != IS_OBJECT && Z_TYPE_PP(eval) != IS_RESOURCE) {
+			zval_ptr_dtor(eval);
+		}
 		efree(eval);
 	}
 

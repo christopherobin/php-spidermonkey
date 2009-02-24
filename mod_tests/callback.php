@@ -6,6 +6,7 @@ $b->registerFunction('fputs');
 $b->registerFunction('fopen');
 $b->registerFunction('fgets');
 $b->registerFunction('feof');
+$b->registerFunction('is_a');
 $b->registerFunction('var_dump');
 $b->registerClass('DOMDocument');
 
@@ -35,6 +36,11 @@ if (ch) {
 	data = ch.read(11)
 	printf("%s" + PHP_EOL, data)
 }
+
+var_dump(dom)
+var_dump(dom)
+
+fputs(stdin, dom.saveXML() + PHP_EOL);
 
 SCR;
 $b->assign('stdin', STDIN);
