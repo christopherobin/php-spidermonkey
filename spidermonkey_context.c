@@ -143,8 +143,13 @@ PHP_METHOD(JSContext, evaluateScript)
 	
 	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, NULL, 0, &rval) == JS_TRUE)
 	{
-		/* The script evaluated fine, convert the return value to PHP */
-		jsval_to_zval(return_value, intern->ct, &rval TSRMLS_CC);
+		if (rval != 0)
+		{
+			/* The script evaluated fine, convert the return value to PHP */
+			jsval_to_zval(return_value, intern->ct, &rval TSRMLS_CC);
+		}
+		else
+			RETVAL_NULL();
 		/* run garbage collection */
 		JS_MaybeGC(intern->ct);
 	}

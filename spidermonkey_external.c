@@ -52,7 +52,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	JSFunction				*func;
 	JSString				*jfunc_name;
 	char					*func_name;
-	zval					***params, *retval_ptr;
+	zval					***params, *retval_ptr = NULL;
 	php_callback			*callback;
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
@@ -82,9 +82,6 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 		zval **val = emalloc(sizeof(zval*));
 		MAKE_STD_ZVAL(*val);
 		jsval_to_zval(*val, cx, &argv[i] TSRMLS_CC);
-/*		if (Z_TYPE_PP(val) ==  IS_OBJECT) {
-			Z_ADDREF_PP(val);
-		}*/
 		params[i] = val;
 	}
 
@@ -99,20 +96,18 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	{
 		zval **eval;
 		eval = params[i];
-		if (Z_TYPE_PP(eval) != IS_OBJECT && Z_TYPE_PP(eval) != IS_RESOURCE) {
-			zval_ptr_dtor(eval);
-		}
+		zval_ptr_dtor(eval);
 		efree(eval);
 	}
 
-	if (retval_ptr)
+	if (retval_ptr != NULL)
 	{
 		zval_to_jsval(retval_ptr, cx, rval TSRMLS_CC);
 		zval_ptr_dtor(&retval_ptr);
 	}
 	else
 	{
-		*rval = JSVAL_VOID;
+		*rval = JSVAL_NULL;
 	}
 	
 	efree(params);
@@ -174,10 +169,11 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 		params = emalloc(argc * sizeof(zval**));
 		for (i = 0; i < argc; i++)
 		{
-			zval **val = emalloc(sizeof(zval*));
-			MAKE_STD_ZVAL(*val);
-			jsval_to_zval(*val, cx, &argv[i] TSRMLS_CC);
-			params[i] = val;
+			zval *val;
+			MAKE_STD_ZVAL(val);
+			jsval_to_zval(val, cx, &argv[i] TSRMLS_CC);
+			SEPARATE_ARG_IF_REF(val);
+			params[i] = &val;
 		}
 
 		fci.size			= sizeof(fci);
@@ -201,9 +197,9 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 			/* call ended, clean */
 			for (i = 0; i < argc; i++)
 			{
-				zval **eval;
-				eval = params[i];
-				zval_ptr_dtor(eval);
+				zval *eval;
+				eval = *params[i];
+				zval_ptr_dtor(&eval);
 				efree(eval);
 			}
 			if (retval_ptr) {

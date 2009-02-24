@@ -242,13 +242,11 @@ PHP_MINFO_FUNCTION(spidermonkey)
 	php_info_print_table_end();
 }
 
-/* convert a given jsval in a context to a zval, for PHP access */
+/*  convert a given jsval in a context to a zval, for PHP access */
 void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 {
 	jsval   rval;
 
-
-	//memcpy(&rval, jval, sizeof(jsval));
 	rval = *jval;
 
 	/* if it's a number or double, convert to double */
@@ -350,7 +348,7 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 			}
 			else
 			{
-				RETVAL_ZVAL(jsref->obj, 0, NULL);
+				RETVAL_ZVAL(jsref->obj, 1, NULL);
 			}
 		}
 		else
