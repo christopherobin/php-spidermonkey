@@ -97,6 +97,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC);
 /* init/shutdown functions */
 PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);
+PHP_RSHUTDOWN_FUNCTION(spidermonkey);
 PHP_MINFO_FUNCTION(spidermonkey);
 /* JSContext methods */
 PHP_METHOD(JSContext,	evaluateScript);

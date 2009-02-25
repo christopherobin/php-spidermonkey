@@ -31,7 +31,7 @@ zend_module_entry spidermonkey_module_entry = {
 	PHP_MINIT(spidermonkey), /* MINIT */
 	PHP_MSHUTDOWN(spidermonkey), /* MSHUTDOWN */
 	NULL, /* RINIT */
-	NULL, /* RSHUTDOWN */
+	PHP_RSHUTDOWN(spidermonkey), /* RSHUTDOWN */
 	PHP_MINFO(spidermonkey), /* MINFO */
 	PHP_SPIDERMONKEY_EXTVER,
 	STANDARD_MODULE_PROPERTIES
@@ -223,6 +223,14 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	php_spidermonkey_jsc_entry = zend_register_internal_class(&ce TSRMLS_CC);
 
 	return SUCCESS;
+}
+
+/* I was not doing this before, which mean that in Apache, all created JSRuntime
+ * were only freed when the server was shutdown */
+PHP_RSHUTDOWN_FUNCTION(spidermonkey)
+{
+	if (SPIDERMONKEY_G(rt) != NULL)
+		JS_DestroyRuntime(SPIDERMONKEY_G(rt));
 }
 
 PHP_MSHUTDOWN_FUNCTION(spidermonkey)
