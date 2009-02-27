@@ -125,6 +125,7 @@ JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 /* }}} */
 
 /* Methods used/exported in JS */

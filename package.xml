@@ -14,15 +14,18 @@
   </lead>
   <date>2009-02-25</date>
   <version>
-    <release>0.8dev</release><api>0.8dev</api>
+    <release>0.1.1</release><api>0.1.1</api>
   </version>
   <stability>
     <release>alpha</release><api>alpha</api>
   </stability>
   <license uri="http://www.php.net/license">PHP License</license>
   <notes>
- - Created package.xml
-</notes>
+ * Bug correction on NULL values that would make the app segfault
+ * Several optimisations on types conversion
+ * Added tell() function on streams
+ * Created tests for "make test"
+  </notes>
   <contents>
     <dir name="/">
       <file name="LICENSE" role="doc"/>
@@ -39,7 +42,7 @@
   <dependencies>
     <required>
       <php>
-        <min>5.3.0</min>
+        <min>5.3.0beta1</min>
       </php>
       <pearinstaller>
         <min>1.4.0</min>
@@ -48,19 +51,5 @@
   </dependencies>
   <providesextension>spidermonkey</providesextension>
   <extsrcrelease/>
- <changelog>
-   <release>
-     <stability><release>alpha</release><api>alpha</api></stability>
-     <version><release>0.8dev</release><api>0.8dev</api></version>
-     <date>2009-02-25</date>
-     <notes>
- - Compile in ZTS mode
- - JSRuntime removed for easier usage
- - Properties works on objects
- - Allow to export classes
- - Known issues:
-   * Using var_dump in JS corrupt the JS engine memory
-     </notes>
-    </release>
-  </changelog>
+  <changelog/>
 </package>

@@ -257,28 +257,23 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 	rval = *jval;
 
-	/* if it's a number or double, convert to double */
-	if (JSVAL_IS_NUMBER(rval) || JSVAL_IS_DOUBLE(rval))
+	if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
 	{
-		jsdouble d;
-		if (JS_ValueToNumber(ctx, rval, &d) == JS_TRUE)
-		{
-			RETVAL_DOUBLE(d);
-		}
-		else
-			RETVAL_FALSE;
+		RETVAL_NULL();
+	}
+	else if (JSVAL_IS_DOUBLE(rval))
+	{
+		RETVAL_DOUBLE(*JSVAL_TO_DOUBLE(rval));
 	}
 	else if (JSVAL_IS_INT(rval))
 	{
-		int d;
-		d = JSVAL_TO_INT(rval);
-		RETVAL_LONG(d);
+		RETVAL_LONG(JSVAL_TO_INT(rval));
 	}
 	else if (JSVAL_IS_STRING(rval))
 	{
 		JSString *str;
 		/* first we convert the jsval to a JSString */
-		str = JS_ValueToString(ctx, rval);
+		str = JSVAL_TO_STRING(rval);
 		if (str != NULL)
 		{
 			/* then we retrieve the pointer to the string */
@@ -310,63 +305,55 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 		php_jscontext_object	*intern;
 		php_jsobject_ref		*jsref;
 
-		if (JS_ValueToObject(ctx, rval, &obj) == JS_TRUE)
+		//if (JS_ValueToObject(ctx, rval, &obj) == JS_TRUE)
+		obj = JSVAL_TO_OBJECT(rval);
+
+		intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+
+		if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == NULL || jsref->obj == NULL)
 		{
-			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+			/* create stdClass */
+			object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
 
-			if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == NULL || jsref->obj == NULL)
+			/* then iterate on each property */
+			it = JS_Enumerate(ctx, obj);
+
+			for (i = 0; i < it->length; i++)
 			{
-				/* create stdClass */
-				object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
-
-				/* then iterate on each property */
-				it = JS_Enumerate(ctx, obj);
-
-				for (i = 0; i < it->length; i++)
+				jsval val;
+				jsid id = it->vector[i];
+				if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
 				{
-					jsval val;
-					jsid id = it->vector[i];
-					if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
+					JSString *str;
+					jsval item_val;
+
+					str = JS_ValueToString(ctx, val);
+
+					if (js_GetProperty(ctx, obj, id, &item_val) == JS_TRUE)
 					{
-						JSString *str;
-						jsval item_val;
+						zval *fval;
+						char *name;
 
-						str = JS_ValueToString(ctx, val);
+						/* Retrieve property name */
+						name = JS_GetStringBytes(str);
 
-						if (js_GetProperty(ctx, obj, id, &item_val) == JS_TRUE)
-						{
-							zval *fval;
-							char *name;
-
-							/* Retrieve property name */
-							name = JS_GetStringBytes(str);
-
-							MAKE_STD_ZVAL(fval);
-							/* Call this function to convert a jsval to a zval */
-							jsval_to_zval(fval, ctx, &item_val TSRMLS_CC);
-							/* Add property to our stdClass */
-							zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
-							/* Destroy pointer to zval */
-							zval_ptr_dtor(&fval);
-						}
+						MAKE_STD_ZVAL(fval);
+						/* Call this function to convert a jsval to a zval */
+						jsval_to_zval(fval, ctx, &item_val TSRMLS_CC);
+						/* Add property to our stdClass */
+						zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
+						/* Destroy pointer to zval */
+						zval_ptr_dtor(&fval);
 					}
 				}
+			}
 
-				JS_DestroyIdArray(ctx, it);
-			}
-			else
-			{
-				RETVAL_ZVAL(jsref->obj, 1, NULL);
-			}
+			JS_DestroyIdArray(ctx, it);
 		}
 		else
 		{
-			RETVAL_NULL();
+			RETVAL_ZVAL(jsref->obj, 1, NULL);
 		}
-	}
-	else if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
-	{
-		RETVAL_NULL();
 	}
 	else /* something is wrong */
 		RETVAL_FALSE;
@@ -390,11 +377,11 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 	switch(Z_TYPE_P(val))
 	{
+		case IS_LONG:
+			JS_NewNumberValue(ctx, Z_LVAL_P(val), jval);
+			break;
 		case IS_DOUBLE:
 			JS_NewNumberValue(ctx, Z_DVAL_P(val), jval);
-			break;
-		case IS_LONG:
-			*jval = INT_TO_JSVAL(Z_LVAL_P(val));
 			break;
 		case IS_STRING:
 			jstr = JS_NewStringCopyN(ctx, Z_STRVAL_P(val), Z_STRLEN_P(val));
@@ -432,6 +419,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 				JS_DefineFunction(ctx, jobj, "getl", js_stream_getline, 1, 0);
 				JS_DefineFunction(ctx, jobj, "seek", js_stream_seek, 1, 0);
 				JS_DefineFunction(ctx, jobj, "write", js_stream_write, 1, 0);
+				JS_DefineFunction(ctx, jobj, "tell", js_stream_tell, 1, 0);
 			}
 
 			/* store pointer to HashTable */

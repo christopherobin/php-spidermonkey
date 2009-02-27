@@ -33,9 +33,8 @@ JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		JSString	*jstr;
-		jsval	jval;
-		char	*buf;
-		size_t	buf_len, nbytes;
+		char		*buf;
+		size_t		buf_len, nbytes;
 
 		if (argc >= 1)
 		{
@@ -51,9 +50,7 @@ JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
 		
 		if (stream == NULL) {
-			jstr = JS_NewStringCopyN(cx, "Failed to read stream", strlen("Failed to read stream")-1);
-			jval = STRING_TO_JSVAL(jstr);
-			JS_SetPendingException(cx, jval);
+			reportError(cx, "Failed to read stream", NULL);
 			return JS_FALSE;
 		}
 
@@ -90,9 +87,8 @@ JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		JSString	*jstr;
-		jsval	jval;
-		char	*buf;
-		size_t	buf_len, nbytes;
+		char		*buf;
+		size_t		buf_len, nbytes;
 		
 		if (argc >= 1)
 		{
@@ -107,9 +103,7 @@ JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
 		
 		if (stream == NULL) {
-			jstr = JS_NewStringCopyN(cx, "Failed to read stream", strlen("Failed to read stream")-1);
-			jval = STRING_TO_JSVAL(jstr);
-			JS_SetPendingException(cx, jval);
+			reportError(cx, "Failed to read stream", NULL);
 			return JS_FALSE;
 		}
 
@@ -144,9 +138,6 @@ JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE && argc >= 1) {
-		JSString	*jstr;
-		jsval	jval;
-		char	*buf;
 		off_t	pos;
 		int		whence;
 		
@@ -154,9 +145,7 @@ JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
 		
 		if (stream == NULL) {
-			jstr = JS_NewStringCopyN(cx, "Failed to access stream", strlen("Failed to access stream")-1);
-			jval = STRING_TO_JSVAL(jstr);
-			JS_SetPendingException(cx, jval);
+			reportError(cx, "Failed to access stream", NULL);
 			return JS_FALSE;
 		}
 
@@ -192,17 +181,13 @@ JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, js
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE && argc >= 1) {
 		JSString	*jstr;
-		jsval	jval;
-		char	*buf;
-		size_t	buf_len, nbytes;
+		size_t		buf_len, nbytes;
 
 		/* fetch php_stream */
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
 		
 		if (stream == NULL) {
-			jstr = JS_NewStringCopyN(cx, "Failed to write to stream", strlen("Failed to write to stream")-1);
-			jval = STRING_TO_JSVAL(jstr);
-			JS_SetPendingException(cx, jval);
+			reportError(cx, "Failed to write to stream", NULL);
 			return JS_FALSE;
 		}
 
@@ -221,17 +206,47 @@ JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, js
 			}
 		}
 		else {
-			jstr = JS_NewStringCopyN(cx, "Failed to convert type to string", strlen("Failed to convert type to string")-1);
-			jval = STRING_TO_JSVAL(jstr);
-			JS_SetPendingException(cx, jval);
+			reportError(cx, "Failed to convert type to string", NULL);
 			return JS_FALSE;
 		}
 		
-		*rval = INT_TO_JSVAL(nbytes);
+		JS_NewNumberValue(cx, nbytes, rval);
 	}
 
 	return JS_TRUE;
 }
+
+/* this native is used for telling the position in the file */
+JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+	TSRMLS_FETCH();
+	php_jscontext_object	*intern;
+	php_jsobject_ref		*jsref;
+	php_stream				*stream = NULL;
+
+	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+
+	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
+		off_t	file_pos;
+
+		/* fetch php_stream */
+		php_stream_from_zval_no_verify(stream, &jsref->obj);
+		
+		if (stream == NULL) {
+			reportError(cx, "Failed to fetch stream", NULL);
+			return JS_FALSE;
+		}
+
+		file_pos = php_stream_tell(stream);
+
+		// read from string
+		JS_NewNumberValue(cx, file_pos, rval);
+	}
+
+	return JS_TRUE;
+}
+
 
 /*
  * Local Variables:

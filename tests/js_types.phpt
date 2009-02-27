@@ -22,7 +22,7 @@ object(stdClass)#2 (6) {
   ["str"]=>
   string(8) "a string"
   ["long"]=>
-  float(1337)
+  int(1337)
   ["flt"]=>
   float(13.37)
   ["bool"]=>
@@ -32,20 +32,20 @@ object(stdClass)#2 (6) {
   ["numarr"]=>
   object(stdClass)#3 (8) {
     ["0"]=>
-    float(1)
+    int(1)
     ["1"]=>
-    float(2)
+    int(2)
     ["2"]=>
-    float(3)
+    int(3)
     ["3"]=>
-    float(5)
+    int(5)
     ["4"]=>
-    float(7)
+    int(7)
     ["5"]=>
-    float(11)
+    int(11)
     ["6"]=>
-    float(13)
+    int(13)
     ["7"]=>
-    float(17)
+    int(17)
   }
 }

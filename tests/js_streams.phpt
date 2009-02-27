@@ -17,6 +17,7 @@ fd.seek(1024, fd.SEEK_SET)
 fd.write('** FOO **')
 fd.seek(-6, fd.SEEK_CUR)
 foo = fd.read(3)
+print(fd.tell())
 fclose(fd)
 print(foo)
 
@@ -31,6 +32,7 @@ SCR;
 $js->evaluateScript($script);
 ?>
 --EXPECTF--
+1030
 FOO
 $js = new JSContext();
 
