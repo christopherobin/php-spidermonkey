@@ -326,17 +326,19 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 				{
 					JSString *str;
 					jsval item_val;
+					char *name;
 
 					str = JS_ValueToString(ctx, val);
+					
+					/* Retrieve property name */
+					name = JS_GetStringBytes(str);
 
-					if (js_GetProperty(ctx, obj, id, &item_val) == JS_TRUE)
+					/* Try to read property */
+					if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
 					{
 						zval *fval;
-						char *name;
 
-						/* Retrieve property name */
-						name = JS_GetStringBytes(str);
-
+						/* alloc memory for this zval */
 						MAKE_STD_ZVAL(fval);
 						/* Call this function to convert a jsval to a zval */
 						jsval_to_zval(fval, ctx, &item_val TSRMLS_CC);
