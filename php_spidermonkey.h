@@ -84,6 +84,7 @@ typedef struct _php_jscontext_object  {
 	JSContext				*ct;
 	JSClass					script_class;
 	JSObject				*obj;
+	HashTable				*obj_ht;
 } php_jscontext_object;
 
 extern zend_class_entry *php_spidermonkey_jsc_entry;

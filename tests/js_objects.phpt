@@ -18,6 +18,11 @@ bar.setAttribute('bleh', 'blah')
 dom.appendChild(foo).appendChild(bar)
 
 printf(dom.saveXML())
+
+a = {
+  b : this
+};
+
 SCR;
 
 $js->evaluateScript($script);

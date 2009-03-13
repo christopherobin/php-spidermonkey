@@ -77,6 +77,12 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 		FREE_HASHTABLE(intern->ec_ht);
 	}
 
+	if (intern->obj_ht != NULL)
+	{
+		zend_hash_destroy(intern->obj_ht);
+		FREE_HASHTABLE(intern->obj_ht);
+	}
+
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
 }
@@ -111,6 +117,11 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* create callback hashtable */
 	ALLOC_HASHTABLE(intern->jsref->ht);
 	zend_hash_init(intern->jsref->ht, 50, NULL, NULL, 0);
+
+	/* create object map hashtable */
+	ALLOC_HASHTABLE(intern->obj_ht);
+	zend_hash_init(intern->obj_ht, 50, NULL, NULL, 0);
+
 	/* the global object doesn't have any zval */
 	intern->jsref->obj = NULL;
 
@@ -304,6 +315,7 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 		int						i;
 		php_jscontext_object	*intern;
 		php_jsobject_ref		*jsref;
+		zval					*zobj;
 
 		//if (JS_ValueToObject(ctx, rval, &obj) == JS_TRUE)
 		obj = JSVAL_TO_OBJECT(rval);
@@ -312,45 +324,55 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 		if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == NULL || jsref->obj == NULL)
 		{
-			/* create stdClass */
-			object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
-
-			/* then iterate on each property */
-			it = JS_Enumerate(ctx, obj);
-
-			for (i = 0; i < it->length; i++)
+			if(zend_hash_index_find(intern->obj_ht, (ulong)obj, (void **)&zobj) == FAILURE)
 			{
-				jsval val;
-				jsid id = it->vector[i];
-				if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
+				/* create stdClass */
+				object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
+				/* store value */
+				zend_hash_index_update(intern->obj_ht, (ulong)obj, return_value, sizeof(return_value), NULL);
+
+				/* then iterate on each property */
+				it = JS_Enumerate(ctx, obj);
+
+				for (i = 0; i < it->length; i++)
 				{
-					JSString *str;
-					jsval item_val;
-					char *name;
+					jsval val;
+					jsid id = it->vector[i];
 
-					str = JS_ValueToString(ctx, val);
-					
-					/* Retrieve property name */
-					name = JS_GetStringBytes(str);
-
-					/* Try to read property */
-					if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
+					if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
 					{
-						zval *fval;
+						JSString *str;
+						jsval item_val;
+						char *name;
 
-						/* alloc memory for this zval */
-						MAKE_STD_ZVAL(fval);
-						/* Call this function to convert a jsval to a zval */
-						jsval_to_zval(fval, ctx, &item_val TSRMLS_CC);
-						/* Add property to our stdClass */
-						zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
-						/* Destroy pointer to zval */
-						zval_ptr_dtor(&fval);
+						str = JS_ValueToString(ctx, val);
+					
+						/* Retrieve property name */
+						name = JS_GetStringBytes(str);
+
+						/* Try to read property */
+						if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
+						{
+							zval *fval;
+
+							/* alloc memory for this zval */
+							MAKE_STD_ZVAL(fval);
+							/* Call this function to convert a jsval to a zval */
+							jsval_to_zval(fval, ctx, &item_val TSRMLS_CC);
+							/* Add property to our stdClass */
+							zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
+							/* Destroy pointer to zval */
+							zval_ptr_dtor(&fval);
+						}
 					}
 				}
-			}
 
-			JS_DestroyIdArray(ctx, it);
+				JS_DestroyIdArray(ctx, it);
+			}
+			else
+			{
+				RETVAL_ZVAL(zobj, 1, NULL);
+			}
 		}
 		else
 		{
