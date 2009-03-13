@@ -12,19 +12,17 @@
     <email>crobin@php.net</email>
     <active>yes</active>
   </lead>
-  <date>2009-02-25</date>
+  <date>2009-03-13</date>
   <version>
-    <release>0.1.1</release><api>0.1.1</api>
+    <release>0.1.2</release><api>0.1.2</api>
   </version>
   <stability>
-    <release>alpha</release><api>alpha</api>
+    <release>beta</release><api>beta</api>
   </stability>
   <license uri="http://www.php.net/license">PHP License</license>
   <notes>
- * Bug correction on NULL values that would make the app segfault
- * Several optimisations on types conversion
- * Added tell() function on streams
- * Created tests for "make test"
+    * Allow the extension to compile on Ubuntu/Debian
+    * Removed a cyclic reference bug when converting values from Javascript
   </notes>
   <contents>
     <dir name="/">
@@ -37,6 +35,10 @@
       <file name="php_spidermonkey.h" role="src">
         <tasks:replace from="@PACKAGE_VERSION@" to="version" type="package-info" />
       </file>
+      <file name="tests/js_functions.phpt" role="test"/>
+      <file name="tests/js_objects.phpt" role="test"/>
+      <file name="tests/js_streams.phpt" role="test"/>
+      <file name="tests/js_types.phpt" role="test"/>
     </dir>
   </contents>
   <dependencies>
