@@ -214,9 +214,9 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 		/* call ended, clean */
 		for (i = 0; i < argc; i++)
 		{
-			zval **eval;
-			eval = params[i];
-			zval_ptr_dtor(eval);
+			zval *eval;
+			eval = *params[i];
+			zval_ptr_dtor(&eval);
 			efree(eval);
 		}
 
