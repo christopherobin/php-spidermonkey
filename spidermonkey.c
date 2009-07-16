@@ -15,7 +15,8 @@
   | Author: Christophe Robin <crobin@php.net>                            |
   +----------------------------------------------------------------------+
 
-  $Id$ 
+  $Id$
+  $Revision$
 */
 
 #include "php_spidermonkey.h"
@@ -242,6 +243,7 @@ PHP_RSHUTDOWN_FUNCTION(spidermonkey)
 {
 	if (SPIDERMONKEY_G(rt) != NULL)
 		JS_DestroyRuntime(SPIDERMONKEY_G(rt));
+	return SUCCESS;
 }
 
 PHP_MSHUTDOWN_FUNCTION(spidermonkey)
@@ -311,7 +313,6 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 	{
 		JSIdArray				*it;
 		JSObject				*obj = NULL;
-		jsid					*idp;
 		int						i;
 		php_jscontext_object	*intern;
 		php_jsobject_ref		*jsref;
@@ -388,7 +389,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 {
 	JSString				*jstr;
 	JSObject				*jobj;
-	HashTable				*ht, *iht;
+	HashTable				*ht;
 	zend_class_entry		*ce = NULL;
 	zend_function			*fptr;
 	php_jscontext_object	*intern;
@@ -531,7 +532,6 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 				ulong idx;
 				int type;
 				zval **ppzval;
-				jsval jival;
 				char intIdx[25];
 
 				/* retrieve current key */
@@ -544,7 +544,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 				if (type == HASH_KEY_IS_LONG)
 				{
-					sprintf(intIdx, "%d", idx);
+					sprintf(intIdx, "%ld", idx);
 					php_jsobject_set_property(ctx, jobj, intIdx, *ppzval TSRMLS_CC);
 				}
 				else

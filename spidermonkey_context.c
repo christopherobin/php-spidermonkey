@@ -15,12 +15,12 @@
   | Author: Christophe Robin <crobin@php.net>                            |
   +----------------------------------------------------------------------+
 
-  $Id$ 
+  $Id$
+  $Revision$
 */
 
 #include "php_spidermonkey.h"
-
-static int le_jscontext_descriptor;
+#include "zend_exceptions.h"
 
 /**
  * JSContext embedding

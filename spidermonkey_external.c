@@ -15,10 +15,12 @@
   | Author: Christophe Robin <crobin@php.net>                            |
   +----------------------------------------------------------------------+
 
-  $Id$ 
+  $Id$
+  $Revision$
 */
 
 #include "php_spidermonkey.h"
+#include "zend_exceptions.h"
 
 /* The error reporter callback. */
 /* TODO: change that to an exception */
@@ -26,15 +28,13 @@ void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 {
 	TSRMLS_FETCH();
 	/* throw error */
-	zend_throw_exception(zend_exception_get_default(TSRMLS_C), message, 0 TSRMLS_CC);
+	zend_throw_exception(zend_exception_get_default(TSRMLS_C), (char *) message, 0 TSRMLS_CC);
 }
 
 /* this function set a property on an object */
 void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val TSRMLS_DC)
 {
-	jsval 					jval;
-	php_jsobject_ref		*jsref;
-	php_jscontext_object	*intern;
+	jsval jval;
 
 	/* first convert zval to jsval */
 	zval_to_jsval(val, ctx, &jval TSRMLS_CC);
@@ -47,7 +47,6 @@ void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_nam
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
 	TSRMLS_FETCH();
-	JSString				*str;
 	JSFunction				*func;
 	JSString				*jfunc_name;
 	char					*func_name;
@@ -118,7 +117,6 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
 	TSRMLS_FETCH();
-	JSString				*str;
 	JSFunction				*class;
 	JSString				*jclass_name;
 	char					*class_name;
@@ -127,7 +125,6 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 	zval					*cobj;
 
 	php_jscontext_object	*intern;
-	php_jsobject_ref		*jsref;
 	int						i;
 
 	if (!JS_IsConstructing(cx))
@@ -251,7 +248,6 @@ JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 	TSRMLS_FETCH();
 	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
-	jsval					js_propname;
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);

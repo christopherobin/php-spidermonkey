@@ -15,7 +15,8 @@
   | Author: Christophe Robin <crobin@php.net>                            |
   +----------------------------------------------------------------------+
 
-  $Id$ 
+  $Id$
+  $Revision$
 */
 
 #include "php_spidermonkey.h"
@@ -110,7 +111,9 @@ JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 		buf = emalloc(buf_len * sizeof(char));
 
 		// read from string
-		php_stream_get_line(stream, buf, buf_len, &nbytes);
+		if (php_stream_get_line(stream, buf, buf_len, &nbytes) == NULL) {
+			nbytes = 0;
+		}
 
 		if (nbytes > 0)	{
 			jstr = JS_NewStringCopyN(cx, buf, nbytes);

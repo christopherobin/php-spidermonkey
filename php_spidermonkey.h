@@ -15,7 +15,8 @@
   | Author: Christophe Robin <crobin@php.net>                            |
   +----------------------------------------------------------------------+
 
-  $Id$ 
+  $Id$
+  $Revision$
 */
 
 #ifndef PHP_SPIDERMONKEY_H
