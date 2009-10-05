@@ -241,8 +241,10 @@ PHP_MINIT_FUNCTION(spidermonkey)
  * were only freed when the server was shutdown */
 PHP_RSHUTDOWN_FUNCTION(spidermonkey)
 {
-	if (SPIDERMONKEY_G(rt) != NULL)
+	if (SPIDERMONKEY_G(rt) != NULL) {
 		JS_DestroyRuntime(SPIDERMONKEY_G(rt));
+		SPIDERMONKEY_G(rt) = NULL; // DestroyRuntime doesn't change the pointer value, set it to null to avoid bugs
+	}
 	return SUCCESS;
 }
 
