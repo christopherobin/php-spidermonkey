@@ -189,6 +189,7 @@ static zend_object_value php_jscontext_object_new(zend_class_entry *class_type T
 */
 PHP_MINIT_FUNCTION(spidermonkey)
 {
+	zend_class_entry ce;
 
 	/*  CONSTANTS */
 	
@@ -224,8 +225,6 @@ PHP_MINIT_FUNCTION(spidermonkey)
 
 	/* here we set handlers to zero, meaning that we have no handlers set */
 	memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-
-	zend_class_entry ce;
 
 	/*  init JSContext class */
 	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSC_NAME, php_spidermonkey_jsc_functions);
@@ -291,9 +290,17 @@ void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC)
 		str = JSVAL_TO_STRING(rval);
 		if (str != NULL)
 		{
-			/* then we retrieve the pointer to the string */
-			char *txt = JS_GetStringBytes(str);
-			RETVAL_STRING(txt, strlen(txt));
+			/* check string length and return an empty string if the
+			   js string is empty (bug 16876) */
+			if (JS_GetStringLength(str)) {
+				/* then we retrieve the pointer to the string */
+				char *txt = JS_GetStringBytes(str);
+				RETVAL_STRINGL(txt, strlen(txt), 1);
+			}
+			else
+			{
+				RETVAL_EMPTY_STRING();
+			}
 		}
 		else
 		{
@@ -396,6 +403,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 	zend_function			*fptr;
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
+	php_stream				*stream;
 
 	if (val == NULL) {
 		*jval = JSVAL_NULL;

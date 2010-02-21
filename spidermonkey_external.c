@@ -286,11 +286,11 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 		if (jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_OBJECT) {
 			JSString *str;
 			char *prop_name;
+			zval *val = NULL;
 
 			str = JS_ValueToString(cx, id);
 			prop_name = JS_GetStringBytes(str);
-
-			zval *val = NULL;
+			
 			val = zend_read_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), 1 TSRMLS_CC);
 
 			if (val != EG(uninitialized_zval_ptr)) {

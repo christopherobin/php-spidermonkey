@@ -121,7 +121,7 @@ PHP_METHOD(JSContext, assign)
 }
 /* }}} */
 
-/* {{{ proto public mixed JSContext::evaluateScript(string $script)
+/* {{{ proto public mixed JSContext::evaluateScript(string $script [, string $script_name ])
    Evaluate script and return the last global object in scope to PHP.
    Objects are not returned for now. Any global variable declared in
    this script will be usable in any following call to evaluateScript
@@ -129,19 +129,20 @@ PHP_METHOD(JSContext, assign)
 PHP_METHOD(JSContext, evaluateScript)
 {
 	char *script;
-	int script_len;
+	char *script_name = NULL;
+	int script_len, script_name_len = 0;
 	php_jscontext_object *intern;
 	jsval rval;
 
 	/* retrieve script */
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						"s", &script, &script_len) == FAILURE) {
+						"s|s", &script, &script_len, &script_name, &script_name_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 	
-	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, NULL, 0, &rval) == JS_TRUE)
+	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, script_name, 0, &rval) == JS_TRUE)
 	{
 		if (rval != 0)
 		{

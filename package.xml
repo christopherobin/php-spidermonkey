@@ -12,9 +12,9 @@
     <email>crobin@php.net</email>
     <active>yes</active>
   </lead>
-  <date>2009-03-13</date>
+  <date>2010-02-21</date>
   <version>
-    <release>0.1.2</release><api>0.1.2</api>
+    <release>0.1.4</release><api>0.1.4</api>
   </version>
   <stability>
     <release>beta</release><api>beta</api>
