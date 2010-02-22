@@ -32,3 +32,9 @@ $js->evaluateScript($script);
 <foo>
   <bar bleh="blah">meh</bar>
 </foo>
+
+Fatal error: Uncaught exception 'Exception' with message 'Trying to reference global object' in /home/bomb/Desktop/Code/C/spidermonkey/tests/js_objects.php:25
+Stack trace:
+#0 /home/bomb/Desktop/Code/C/spidermonkey/tests/js_objects.php(25): JSContext->evaluateScript('dom = new DOMDo...')
+#1 {main}
+  thrown in /home/bomb/Desktop/Code/C/spidermonkey/tests/js_objects.php on line 25

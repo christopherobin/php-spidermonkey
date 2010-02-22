@@ -85,15 +85,21 @@ typedef struct _php_jscontext_object  {
 	JSContext				*ct;
 	JSClass					script_class;
 	JSObject				*obj;
-	HashTable				*obj_ht;
 } php_jscontext_object;
+
+typedef struct _php_jsparent {
+    JSObject                *obj;
+    zval                    *zobj;
+    struct _php_jsparent    *parent;
+} php_jsparent;
 
 extern zend_class_entry *php_spidermonkey_jsc_entry;
 
 /* this method defined in spidermonkey.c allow us to convert a jsval
  * to a zval for PHP use */
 void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val TSRMLS_DC);
-void jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval TSRMLS_DC);
+#define jsval_to_zval(rval, ctx, jval) _jsval_to_zval(rval, ctx, jval, NULL TSRMLS_CC)
+void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparent *parent TSRMLS_DC);
 void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC);
 
 /* init/shutdown functions */

@@ -147,7 +147,7 @@ PHP_METHOD(JSContext, evaluateScript)
 		if (rval != 0)
 		{
 			/* The script evaluated fine, convert the return value to PHP */
-			jsval_to_zval(return_value, intern->ct, &rval TSRMLS_CC);
+			jsval_to_zval(return_value, intern->ct, &rval);
 		}
 		else
 			RETVAL_NULL();

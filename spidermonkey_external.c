@@ -79,7 +79,7 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	{
 		zval **val = emalloc(sizeof(zval*));
 		MAKE_STD_ZVAL(*val);
-		jsval_to_zval(*val, cx, &argv[i] TSRMLS_CC);
+		jsval_to_zval(*val, cx, &argv[i]);
 		params[i] = val;
 	}
 
@@ -167,7 +167,7 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 		{
 			zval *val;
 			MAKE_STD_ZVAL(val);
-			jsval_to_zval(val, cx, &argv[i] TSRMLS_CC);
+			jsval_to_zval(val, cx, &argv[i]);
 			SEPARATE_ARG_IF_REF(val);
 			params[i] = &val;
 		}
@@ -263,7 +263,7 @@ JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 			prop_name = JS_GetStringBytes(str);
 
 			MAKE_STD_ZVAL(val);
-			jsval_to_zval(val, cx, vp TSRMLS_CC);
+			jsval_to_zval(val, cx, vp);
 
 			zend_update_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), val TSRMLS_CC);
 			zval_ptr_dtor(&val);
@@ -287,10 +287,18 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 			JSString *str;
 			char *prop_name;
 			zval *val = NULL;
+            JSBool has_property;
 
 			str = JS_ValueToString(cx, id);
 			prop_name = JS_GetStringBytes(str);
-			
+
+            has_property = JS_FALSE;
+            if (JS_HasProperty(cx, obj, prop_name, &has_property) && (has_property == JS_TRUE)) {
+                if (JS_LookupProperty(cx, obj, prop_name, vp) == JS_TRUE) {
+                    return JS_TRUE;
+                }
+            }
+
 			val = zend_read_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), 1 TSRMLS_CC);
 
 			if (val != EG(uninitialized_zval_ptr)) {
