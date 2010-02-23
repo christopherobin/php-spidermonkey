@@ -126,8 +126,6 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* Mandatory non-null function pointer members. */
 	intern->script_class.addProperty	= JS_PropertyStub;
 	intern->script_class.delProperty	= JS_PropertyStub;
-	/* this getter doesn't work yet, waiting for spidermonkey
-	 * 1.8.0 which should be out next week */
 	intern->script_class.getProperty	= JS_PropertyGetterPHP;
 	intern->script_class.setProperty	= JS_PropertySetterPHP;
 	intern->script_class.resolve		= JS_ResolvePHP;
@@ -187,7 +185,7 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",				 JSOPTION_ATLINE,				 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",			 JSOPTION_COMPILE_N_GO,			 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_DONT_REPORT_UNCAUGHT",	 JSOPTION_DONT_REPORT_UNCAUGHT,	 CONST_CS | CONST_PERSISTENT);
-#ifdef JSOPTION_NATIVE_BRANCH_CALLBACK
+#ifdef JSOPTION_NATIVE_BRANCH_CALLBACK /* Fix for version 1.9 */
 	REGISTER_LONG_CONSTANT("JSOPTION_NATIVE_BRANCH_CALLBACK",JSOPTION_NATIVE_BRANCH_CALLBACK,CONST_CS | CONST_PERSISTENT);
 #endif
 	REGISTER_LONG_CONSTANT("JSOPTION_STRICT",				 JSOPTION_STRICT,				 CONST_CS | CONST_PERSISTENT);

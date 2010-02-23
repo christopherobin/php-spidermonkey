@@ -26,6 +26,7 @@
       * Bug 16876: Empty string as a parameter causes segfault ( same as 16866 )
       * Bug 16890: Variable is cleaned while being used in JS
       * Bug 16983: Problems with registering classes containing __get()
+    * Added compatibility with spidermonkey 1.9
   </notes>
   <contents>
     <dir name="/">
