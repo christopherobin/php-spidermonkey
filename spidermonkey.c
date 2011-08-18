@@ -134,14 +134,22 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	intern->script_class.convert		= JS_ConvertStub;
 
 	/* Optionally non-null members start here. */
+#if JS_VERSION < 185
 	intern->script_class.getObjectOps	= 0;
+#else
+	intern->script_class.reserved0		= 0;
+#endif
 	intern->script_class.checkAccess	= 0;
 	intern->script_class.call			= 0;
 	intern->script_class.construct		= 0;
 	intern->script_class.xdrObject		= 0;
 	intern->script_class.hasInstance	= 0;
 	intern->script_class.mark			= 0;
+#if JS_VERSION < 185
 	intern->script_class.reserveSlots	= 0;
+#else
+	intern->script_class.reserved1		= 0;
+#endif
 
 	/* says that our script runs in global scope */
 	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX);
@@ -150,7 +158,11 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	JS_SetErrorReporter(intern->ct, reportError);
 	
 	/* create global object for execution */
+#if JS_VERSION < 185
 	intern->obj = JS_NewObject(intern->ct, &intern->script_class, NULL, NULL);
+#else
+	intern->obj = JS_NewGlobalObject(intern->ct, &intern->script_class);
+#endif
 
 	/* store pointer to HashTable */
 	JS_SetPrivate(intern->ct, intern->obj, intern->jsref);
@@ -267,7 +279,11 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 	}
 	else if (JSVAL_IS_DOUBLE(rval))
 	{
+#if JS_VERSION < 185
 		RETVAL_DOUBLE(*JSVAL_TO_DOUBLE(rval));
+#else
+		RETVAL_DOUBLE(JSVAL_TO_DOUBLE(rval));
+#endif
 	}
 	else if (JSVAL_IS_INT(rval))
 	{
@@ -276,16 +292,24 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 	else if (JSVAL_IS_STRING(rval))
 	{
 		JSString *str;
+		int len;
 		/* first we convert the jsval to a JSString */
 		str = JSVAL_TO_STRING(rval);
 		if (str != NULL)
 		{
 			/* check string length and return an empty string if the
 			   js string is empty (bug 16876) */
-			if (JS_GetStringLength(str)) {
+			if ((len = JS_GetStringLength(str)) > 0) {
 				/* then we retrieve the pointer to the string */
+#if JS_VERSION < 185
 				char *txt = JS_GetStringBytes(str);
-				RETVAL_STRINGL(txt, strlen(txt), 1);
+				RETVAL_STRINGL(txt, len, 1);
+#else
+				/* because version 1.8.5 supports unicode, we must encode strings */
+				char *txt = JS_EncodeString(ctx, str);
+				REVAL_STRING(txt, strlen(txt), 1);
+				JS_Free(txt);
+#endif
 			}
 			else
 			{
@@ -369,7 +393,12 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 						str = JS_ValueToString(ctx, val);
 
 						/* Retrieve property name */
+#if JS_VERSION < 185
 						name = JS_GetStringBytes(str);
+#else
+						/* because version 1.8.5 supports unicode, we must encode strings */
+						name = JS_EncodeString(ctx, str);
+#endif
 
 						/* Try to read property */
 						if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
@@ -385,6 +414,9 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 							/* Destroy pointer to zval */
 							zval_ptr_dtor(&fval);
 						}
+#if JS_VERSION >= 185
+						JS_Free(name);
+#endif
 					}
 				}
 

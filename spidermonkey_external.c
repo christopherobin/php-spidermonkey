@@ -44,7 +44,11 @@ void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_nam
 }
 
 /* all function calls are mapped through this unique function */
+#if JS_VERSION < 185
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool generic_call(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	JSFunction				*func;
@@ -55,11 +59,21 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	int						i;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
 
 	/* first retrieve function name */
 	func = JS_ValueToFunction(cx, ((argv)[-2]));
 	jfunc_name = JS_GetFunctionId(func);
+#if JS_VERSION < 185
 	func_name = JS_GetStringBytes(jfunc_name);
+#else
+	/* because version 1.8.5 supports unicode, we must encode strings */
+	func_name = JS_EncodeString(cx, jfunc_name);
+#endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 
@@ -72,6 +86,11 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 	if (zend_hash_find(jsref->ht, func_name, strlen(func_name), (void**)&callback) == FAILURE) {
 		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
 	}
+
+	/* free function name */
+#if JS_VERSION >= 185
+	JS_Free(func_name);
+#endif
 
 	/* ready parameters */
 	params = emalloc(argc * sizeof(zval**));
@@ -114,7 +133,11 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 }
 
 /* this native is used for class constructors */
+#if JS_VERSION < 185
 JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool generic_constructor(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	JSFunction				*class;
@@ -123,11 +146,20 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 	zval					***params, *retval_ptr;
 	zend_class_entry		*ce, **pce;
 	zval					*cobj;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
 
 	php_jscontext_object	*intern;
 	int						i;
 
+#if JS_VERSION < 185
 	if (!JS_IsConstructing(cx))
+#else
+	if (!JS_IsConstructing(cx, vp))
+#endif
 	{
 		return JS_FALSE;
 	}
@@ -135,7 +167,12 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 	/* first retrieve class name */
 	class = JS_ValueToFunction(cx, ((argv)[-2]));
 	jclass_name = JS_GetFunctionId(class);
+#if JS_VERSION < 185
 	class_name = JS_GetStringBytes(jclass_name);
+#else
+	/* because version 1.8.5 supports unicode, we must encode strings */
+	class_name = JS_EncodeString(cx, jclass_name);
+#endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 
@@ -143,6 +180,11 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 	if (zend_hash_find(intern->ec_ht, class_name, strlen(class_name), (void**)&pce) == FAILURE) {
 		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function callback", 0 TSRMLS_CC);
 	}
+	
+	/* free class name */
+#if JS_VERSION >= 185
+	JS_Free(class_name);
+#endif
 
 	/* retrieve pointer to ce */
 	ce = *pce;
@@ -156,7 +198,12 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 		zend_fcall_info_cache	fcc;
 
 		if (!(ce->constructor->common.fn_flags & ZEND_ACC_PUBLIC)) {
+#if JS_VERSION < 185
 			zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Access to non-public constructor of class %s", class_name);
+#else
+			/* we can't use spidermonkey's class_name pointer because it's not managed by it */
+			zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Access to non-public constructor");
+#endif
 		}
 
 		object_init_ex(cobj, ce);
@@ -236,14 +283,21 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 
 	return JS_TRUE;
 }
-
+#if JS_VERSION < 185
 JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsval id)
+#else
+JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsid id)
+#endif
 {
 	/* always return true, as PHP doesn't use any resolver */
 	return JS_TRUE;
 }
 
+#if JS_VERSION < 185
 JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
+#else
+JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jsobject_ref		*jsref;
@@ -260,20 +314,34 @@ JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 			zval *val;
 
 			str = JS_ValueToString(cx, id);
+#if JS_VERSION < 185
 			prop_name = JS_GetStringBytes(str);
+#else
+			/* because version 1.8.5 supports unicode, we must encode strings */
+			prop_name = JS_EncodeString(cx, str);
+#endif
 
 			MAKE_STD_ZVAL(val);
 			jsval_to_zval(val, cx, vp);
 
 			zend_update_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), val TSRMLS_CC);
 			zval_ptr_dtor(&val);
+
+			/* free prop name */
+#if JS_VERSION >= 185
+			JS_Free(prop_name);
+#endif
 		}
 	}
 
 	return JS_TRUE;
 }
 
+#if JS_VERSION < 185
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
+#else
+JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsid id, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jsobject_ref		*jsref;
@@ -290,16 +358,30 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
             JSBool has_property;
 
 			str = JS_ValueToString(cx, id);
+#if JS_VERSION < 185
 			prop_name = JS_GetStringBytes(str);
+#else
+			/* because version 1.8.5 supports unicode, we must encode strings */
+			prop_name = JS_EncodeString(cx, str);
+#endif
 
             has_property = JS_FALSE;
             if (JS_HasProperty(cx, obj, prop_name, &has_property) && (has_property == JS_TRUE)) {
                 if (JS_LookupProperty(cx, obj, prop_name, vp) == JS_TRUE) {
+					/* free prop name */
+#if JS_VERSION >= 185
+					JS_Free(prop_name);
+#endif
                     return JS_TRUE;
                 }
             }
 
 			val = zend_read_property(Z_OBJCE_P(jsref->obj), jsref->obj, prop_name, strlen(prop_name), 1 TSRMLS_CC);
+
+			/* free prop name */
+#if JS_VERSION >= 185
+			JS_Free(prop_name);
+#endif
 
 			if (val != EG(uninitialized_zval_ptr)) {
 				zval_add_ref(&val);

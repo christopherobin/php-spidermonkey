@@ -126,6 +126,7 @@ PHP_METHOD(JSContext,   getVersionString);
  * PHP. You need to declare them in the global_functions
  * struct in JSContext's constructor
  */
+ #if JS_VERSION < 185
 JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 /* streams */
@@ -134,14 +135,30 @@ JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
 JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
+#else
+JSBool generic_call(JSContext *cx, uintN argc, jsval *vp);
+JSBool generic_constructor(JSContext *cx, uintN argc, jsval *vp);
+/* streams */
+JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp);
+JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp);
+JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp);
+JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp);
+JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp);
+#endif
 /* }}} */
 
 /* Methods used/exported in JS */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report);
 void JS_FinalizePHP(JSContext *cx, JSObject *obj);
+#if JS_VERSION < 185
 JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsval id);
 JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
+#else
+JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsid id);
+JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp);
+JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsid id, jsval *vp);
+#endif
 
 /* Define the entry point symbol
  * Zend will use when loading this module

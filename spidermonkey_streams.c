@@ -22,12 +22,22 @@
 #include "php_spidermonkey.h"
 
 /* this native is used for read from streams */
+
+#if JS_VERSION < 185
 JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
@@ -76,12 +86,22 @@ JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 }
 
 /* this native is used to retrieve a line from a stream */
+#if JS_VERSION < 185
 JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
+
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
@@ -130,12 +150,21 @@ JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 }
 
 /* this native is used to seek in a stream */
+#if JS_VERSION < 185
 JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
@@ -172,12 +201,21 @@ JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 }
 
 /* this native is used for writing to a stream */
+#if JS_VERSION < 185
 JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
@@ -220,12 +258,21 @@ JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, js
 }
 
 /* this native is used for telling the position in the file */
+#if JS_VERSION < 185
 JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+#else
+JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp)
+#endif
 {
 	TSRMLS_FETCH();
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+#if JS_VERSION >= 185
+	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
+	jsval					*argv = JS_ARGV(cx,vp);
+	jsval					*rval = &JS_RVAL(cx,vp);
+#endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
 	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);

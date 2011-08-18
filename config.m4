@@ -31,8 +31,12 @@ PHP_ARG_WITH(spidermonkey, whether to enable spidermonkey support,
 
 if test "$PHP_SPIDERMONKEY" != "no"; then
   for i in $PHP_SPIDERMONKEY /usr/local /usr; do
-    for j in js mozjs; do
-      test -f $i/include/$j/jsapi.h && SPIDERMONKEY_BASEDIR=$i && SPIDERMONKEY_INCDIR=$i/include/$j && SPIDERMONKEY_LIBNAME=$j && break
+    for j in js mozjs mozjs185; do
+      test -f $i/include/$j/jsapi.h && SPIDERMONKEY_BASEDIR=$i && SPIDERMONKEY_INCDIR=$i/include/$j && break
+    done
+    # test for the libname independantely
+    for j in js mozjs mozjs185; do
+      test -f $i/lib/lib$j.so && SPIDERMONKEY_LIBNAME=$j && break
     done
     test -f $i/include/$j/jsapi.h && break
   done
