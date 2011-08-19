@@ -155,7 +155,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	
 	/* create global object for execution */
 #if JS_VERSION < 185
-	intern->obj = JS_NewObject(intern->ct, &intern->script_class, NULL, NULL);
+	intern->obj = JS_NewObject(intern->ct, &intern->global_class, NULL, NULL);
 #else
 	intern->obj = JS_NewCompartmentAndGlobalObject(intern->ct, &intern->global_class, NULL);
 #endif
