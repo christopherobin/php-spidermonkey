@@ -60,6 +60,15 @@ ZEND_END_MODULE_GLOBALS(spidermonkey)
 	#define SPIDERMONKEY_G(v) (spidermonkey_globals.v)
 #endif
 
+/* those are necessary for threadsafe builds since 1.8.5 */
+#if JS_VERSION >= 180
+#define PHPJS_START(cx) JS_BeginRequest(cx)
+#define PHPJS_END(cx) JS_EndRequest(cx)
+#else
+#define PHPJS_START(cx)
+#define PHPJS_END(cx)
+#endif
+
 /* Used by JSContext to store callbacks */
 typedef struct _php_callback {
 	zend_fcall_info			fci;
@@ -83,6 +92,7 @@ typedef struct _php_jscontext_object  {
 	HashTable				*ec_ht;
 	/* Javascript related stuff */
 	JSContext				*ct;
+	JSClass					global_class;
 	JSClass					script_class;
 	JSObject				*obj;
 } php_jscontext_object;

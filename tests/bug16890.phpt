@@ -46,8 +46,5 @@ object(stdClass)#2 (4) {
 }
 object(stdClass)#2 (1) {
   ["b"]=>
-  object(stdClass)#2 (1) {
-    ["b"]=>
-    *RECURSION*
-  }
+  *RECURSION*
 }

@@ -116,12 +116,15 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* the global object doesn't have any zval */
 	intern->jsref->obj = NULL;
 
-	intern->ct = JS_NewContext(SPIDERMONKEY_G(rt), 8092);
+	intern->ct = JS_NewContext(SPIDERMONKEY_G(rt), 8192);
+	PHPJS_START(intern->ct);
 	JS_SetContextPrivate(intern->ct, intern);
+	
+	memset(&intern->script_class, 0, sizeof(intern->script_class));
 
 	/* The script_class is a global object used by PHP to allow function register */
-	intern->script_class.name			= "PHPclass";
-	intern->script_class.flags			= JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE;
+	intern->script_class.name			= "PHPClass";
+	intern->script_class.flags			= JSCLASS_HAS_PRIVATE;
 
 	/* Mandatory non-null function pointer members. */
 	intern->script_class.addProperty	= JS_PropertyStub;
@@ -132,36 +135,29 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	intern->script_class.finalize		= JS_FinalizePHP;
 	intern->script_class.enumerate		= JS_EnumerateStub;
 	intern->script_class.convert		= JS_ConvertStub;
-
-	/* Optionally non-null members start here. */
-#if JS_VERSION < 185
-	intern->script_class.getObjectOps	= 0;
-#else
-	intern->script_class.reserved0		= 0;
-#endif
-	intern->script_class.checkAccess	= 0;
-	intern->script_class.call			= 0;
-	intern->script_class.construct		= 0;
-	intern->script_class.xdrObject		= 0;
-	intern->script_class.hasInstance	= 0;
-	intern->script_class.mark			= 0;
-#if JS_VERSION < 185
-	intern->script_class.reserveSlots	= 0;
-#else
-	intern->script_class.reserved1		= 0;
-#endif
+	
+	memcpy(&intern->global_class, &intern->script_class, sizeof(intern->script_class));
+	intern->global_class.name			= "PHPGlobalClass";
+	intern->global_class.flags			= JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE;
 
 	/* says that our script runs in global scope */
+#if JS_VERSION < 185
 	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX);
+#else
+	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX | JSOPTION_JIT | JSOPTION_METHODJIT);
+#endif
 
 	/* set the error callback */
 	JS_SetErrorReporter(intern->ct, reportError);
+	
+	/* use the latest javascript version */
+	JS_SetVersion(intern->ct, JSVERSION_LATEST);
 	
 	/* create global object for execution */
 #if JS_VERSION < 185
 	intern->obj = JS_NewObject(intern->ct, &intern->script_class, NULL, NULL);
 #else
-	intern->obj = JS_NewGlobalObject(intern->ct, &intern->script_class);
+	intern->obj = JS_NewCompartmentAndGlobalObject(intern->ct, &intern->global_class, NULL);
 #endif
 
 	/* store pointer to HashTable */
@@ -176,6 +172,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jscontext_object_free_storage, NULL TSRMLS_CC);
 	retval.handlers = (zend_object_handlers *) &jscontext_object_handlers;
+	PHPJS_END(intern->ct);
 	return retval;
 }
 
@@ -270,6 +267,8 @@ PHP_MINFO_FUNCTION(spidermonkey)
 void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparent *parent TSRMLS_DC)
 {
 	jsval   rval;
+	
+	PHPJS_START(ctx);
 
 	rval = *jval;
 
@@ -307,8 +306,8 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 #else
 				/* because version 1.8.5 supports unicode, we must encode strings */
 				char *txt = JS_EncodeString(ctx, str);
-				REVAL_STRING(txt, strlen(txt), 1);
-				JS_Free(txt);
+				RETVAL_STRINGL(txt, strlen(txt), 1);
+				JS_free(ctx, txt);
 #endif
 			}
 			else
@@ -350,6 +349,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 
         /* your shouldn't be able to reference the global object */
         if (obj == JS_GetGlobalObject(ctx)) {
+	        PHPJS_END(ctx);
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Trying to reference global object", 0 TSRMLS_CC);
             return;
         }
@@ -415,7 +415,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 							zval_ptr_dtor(&fval);
 						}
 #if JS_VERSION >= 185
-						JS_Free(name);
+						JS_free(ctx, name);
 #endif
 					}
 				}
@@ -432,6 +432,8 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 	}
 	else /* something is wrong */
 		RETVAL_FALSE;
+		
+	PHPJS_END(ctx);
 }
 
 /* convert a given jsval in a context to a zval, for PHP access */
@@ -446,8 +448,11 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 	php_jsobject_ref		*jsref;
 	php_stream				*stream;
 
+	PHPJS_START(ctx);
+
 	if (val == NULL) {
 		*jval = JSVAL_NULL;
+		PHPJS_END(ctx);
 		return;
 	}
 
@@ -613,6 +618,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			*jval = JSVAL_VOID;
 			break;
 	}
+	PHPJS_END(ctx);
 }
 
 /*

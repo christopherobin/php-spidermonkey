@@ -42,6 +42,8 @@ PHP_METHOD(JSContext, registerFunction)
 
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	
+	PHPJS_START(intern->ct);
 
 	Z_ADDREF_P(callback.fci.function_name);
 
@@ -54,7 +56,8 @@ PHP_METHOD(JSContext, registerFunction)
 
 	zend_hash_add(intern->jsref->ht, name, name_len, &callback, sizeof(callback), NULL);
 	JS_DefineFunction(intern->ct, intern->obj, name, generic_call, 1, 0);
-
+	
+	PHPJS_END(intern->ct);
 }
 /* }}} */
 
@@ -75,11 +78,14 @@ PHP_METHOD(JSContext, registerClass)
 
 	/* retrieve this class from the store */
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	
+	PHPJS_START(intern->ct);
 
 	if (class_name_len) {
 		zend_class_entry **pce;
 		if (zend_lookup_class(class_name, class_name_len, &pce TSRMLS_CC) == FAILURE) {
 			if (!EG(exception)) {
+				PHPJS_END(intern->ct);
 				zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Class %s doesn't exists !", class_name);
 				return;
 			}
@@ -98,6 +104,7 @@ PHP_METHOD(JSContext, registerClass)
 		JS_DefineFunction(intern->ct, intern->obj, class_name, generic_constructor, 1, 0);
 	}
 
+	PHPJS_END(intern->ct);
 }
 /* }}} */
 
@@ -142,6 +149,8 @@ PHP_METHOD(JSContext, evaluateScript)
 
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
 	
+	PHPJS_START(intern->ct);
+	
 	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, script_name, 0, &rval) == JS_TRUE)
 	{
 		if (rval != 0)
@@ -156,8 +165,10 @@ PHP_METHOD(JSContext, evaluateScript)
 	}
 	else
 	{
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
+	
+	PHPJS_END(intern->ct);
 }
 /* }}} */
 

@@ -12,21 +12,16 @@
     <email>crobin@php.net</email>
     <active>yes</active>
   </lead>
-  <date>2010-02-23</date>
+  <date>2011-08-19</date>
   <version>
-    <release>0.1.4</release><api>0.1.4</api>
+    <release>0.2.0</release><api>0.2.0</api>
   </version>
   <stability>
-    <release>beta</release><api>beta</api>
+    <release>stable</release><api>stable</api>
   </stability>
   <license uri="http://www.php.net/license">PHP License</license>
   <notes>
-    * Fixed bugs 16866, 16876, 16890, 16983:
-      * Bug 16866: Returning empty string from static function causes segmentation fault
-      * Bug 16876: Empty string as a parameter causes segfault ( same as 16866 )
-      * Bug 16890: Variable is cleaned while being used in JS
-      * Bug 16983: Problems with registering classes containing __get()
-    * Added compatibility with spidermonkey 1.9
+    * Added support for spidermonkey 1.8.5
   </notes>
   <contents>
     <dir name="/">
@@ -47,6 +42,7 @@
       <file name="tests/bug16876.phpt" role="test"/>
       <file name="tests/bug16890.phpt" role="test"/>
       <file name="tests/bug16983.phpt" role="test"/>
+      <file name="tests/bug22838.phpt" role="test"/>
     </dir>
   </contents>
   <dependencies>

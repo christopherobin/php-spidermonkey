@@ -33,6 +33,7 @@ JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp)
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+	JSClass					*class;
 #if JS_VERSION >= 185
 	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
 	jsval					*argv = JS_ARGV(cx,vp);
@@ -40,7 +41,13 @@ JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp)
 #endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+	class = &intern->script_class;
+
+	if (obj == intern->obj) {
+		class =&intern->global_class;
+	}
+
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		JSString	*jstr;
@@ -96,6 +103,7 @@ JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp)
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+	JSClass					*class;
 #if JS_VERSION >= 185
 	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
 	jsval					*argv = JS_ARGV(cx,vp);
@@ -104,7 +112,13 @@ JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp)
 
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+	class = &intern->script_class;
+
+	if (obj == intern->obj) {
+		class =&intern->global_class;
+	}
+
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		JSString	*jstr;
@@ -160,6 +174,7 @@ JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp)
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+	JSClass					*class;
 #if JS_VERSION >= 185
 	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
 	jsval					*argv = JS_ARGV(cx,vp);
@@ -167,7 +182,13 @@ JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp)
 #endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+	class = &intern->script_class;
+
+	if (obj == intern->obj) {
+		class =&intern->global_class;
+	}
+
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE && argc >= 1) {
 		off_t	pos;
@@ -211,6 +232,7 @@ JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+	JSClass					*class;
 #if JS_VERSION >= 185
 	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
 	jsval					*argv = JS_ARGV(cx,vp);
@@ -218,7 +240,13 @@ JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
 #endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+	class = &intern->script_class;
+
+	if (obj == intern->obj) {
+		class =&intern->global_class;
+	}
+
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE && argc >= 1) {
 		JSString	*jstr;
@@ -235,7 +263,11 @@ JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
 		jstr = JS_ValueToString(cx, argv[0]);
 		if (jstr != NULL) {
 			/* then we retrieve the pointer to the string */
+#if JS_VERSION < 185
 			char *txt = JS_GetStringBytes(jstr);
+#else
+			char *txt = JS_EncodeString(cx, jstr);
+#endif
 			if (argc >= 2)
 			{
 				buf_len = JSVAL_TO_INT(argv[1]);
@@ -245,6 +277,10 @@ JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
 			{
 				nbytes = php_stream_write_string(stream, txt);
 			}
+
+#if JS_VERSION >= 185
+			JS_free(cx, txt);
+#endif
 		}
 		else {
 			reportError(cx, "Failed to convert type to string", NULL);
@@ -268,6 +304,7 @@ JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp)
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
+	JSClass					*class;
 #if JS_VERSION >= 185
 	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
 	jsval					*argv = JS_ARGV(cx,vp);
@@ -275,7 +312,13 @@ JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp)
 #endif
 
 	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, &intern->script_class, NULL);
+	class = &intern->script_class;
+
+	if (obj == intern->obj) {
+		class =&intern->global_class;
+	}
+
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		off_t	file_pos;
