@@ -46,7 +46,7 @@ ZEND_GET_MODULE(spidermonkey)
 * JSCONTEXT STATIC CODE
 ********************************/
 
-static function_entry php_spidermonkey_jsc_functions[] = {
+zend_function_entry php_spidermonkey_jsc_functions[] = {
 	PHP_ME(JSContext, evaluateScript, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerFunction, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(JSContext, registerClass, NULL, ZEND_ACC_PUBLIC)
@@ -119,7 +119,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	intern->ct = JS_NewContext(SPIDERMONKEY_G(rt), 8192);
 	PHPJS_START(intern->ct);
 	JS_SetContextPrivate(intern->ct, intern);
-	
+
 	memset(&intern->script_class, 0, sizeof(intern->script_class));
 
 	/* The script_class is a global object used by PHP to allow function register */
@@ -135,7 +135,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	intern->script_class.finalize		= JS_FinalizePHP;
 	intern->script_class.enumerate		= JS_EnumerateStub;
 	intern->script_class.convert		= JS_ConvertStub;
-	
+
 	memcpy(&intern->global_class, &intern->script_class, sizeof(intern->script_class));
 	intern->global_class.name			= "PHPGlobalClass";
 	intern->global_class.flags			= JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE;
@@ -149,10 +149,10 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* set the error callback */
 	JS_SetErrorReporter(intern->ct, reportError);
-	
+
 	/* use the latest javascript version */
 	JS_SetVersion(intern->ct, JSVERSION_LATEST);
-	
+
 	/* create global object for execution */
 #if JS_VERSION < 185
 	intern->obj = JS_NewObject(intern->ct, &intern->global_class, NULL, NULL);
@@ -168,7 +168,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* create zend object */
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
-	zend_hash_copy(intern->zo.properties, &class_type->default_properties, (copy_ctor_func_t) zval_add_ref,(void *) &tmp, sizeof(zval *));
+	object_properties_init(&intern->zo, class_type);
 
 	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jscontext_object_free_storage, NULL TSRMLS_CC);
 	retval.handlers = (zend_object_handlers *) &jscontext_object_handlers;
@@ -189,7 +189,7 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	zend_class_entry ce;
 
 	/*  CONSTANTS */
-	
+
 	/*  OPTIONS */
 	REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",				 JSOPTION_ATLINE,				 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",			 JSOPTION_COMPILE_N_GO,			 CONST_CS | CONST_PERSISTENT);
@@ -250,7 +250,7 @@ PHP_MSHUTDOWN_FUNCTION(spidermonkey)
 {
 	/*  free everything JS* could have allocated */
 	JS_ShutDown();
-	
+
 	return SUCCESS;
 }
 
@@ -267,7 +267,7 @@ PHP_MINFO_FUNCTION(spidermonkey)
 void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparent *parent TSRMLS_DC)
 {
 	jsval   rval;
-	
+
 	PHPJS_START(ctx);
 
 	rval = *jval;
@@ -366,7 +366,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
                 }
                 parent = parent->parent;
             }
-            
+
             if (zobj == NULL)
 			{
 				/* create stdClass */
@@ -375,7 +375,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
                 jsthis.obj     = obj;
                 jsthis.zobj    = return_value;
                 jsthis.parent  = parent;
-                
+
 				/* then iterate on each property */
 				it = JS_Enumerate(ctx, obj);
 
@@ -432,7 +432,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 	}
 	else /* something is wrong */
 		RETVAL_FALSE;
-		
+
 	PHPJS_END(ctx);
 }
 
@@ -505,7 +505,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 			/* store pointer to HashTable */
 			JS_SetPrivate(ctx, jobj, jsref);
-			
+
 			*jval = OBJECT_TO_JSVAL(jobj);
 			break;
 		case IS_OBJECT:
@@ -608,7 +608,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 					php_jsobject_set_property(ctx, jobj, key, *ppzval TSRMLS_CC);
 				}
 			}
-			
+
 			*jval = OBJECT_TO_JSVAL(jobj);
 			break;
 		case IS_NULL:
