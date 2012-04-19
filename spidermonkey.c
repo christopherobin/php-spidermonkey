@@ -168,7 +168,6 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* create zend object */
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
-	object_properties_init(&intern->zo, class_type);
 
 	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jscontext_object_free_storage, NULL TSRMLS_CC);
 	retval.handlers = (zend_object_handlers *) &jscontext_object_handlers;

@@ -3,25 +3,25 @@
   <name>spidermonkey</name>
   <channel>pecl.php.net</channel>
   <summary>JavaScript engine for PHP</summary>
-  <description>
-    This extension allow you to embed Mozilla's Javascript engine Spidermonkey in PHP.
-  </description>
+  <description>This extension allow you to embed Mozilla&apos;s Javascript engine Spidermonkey in PHP.</description>
   <lead>
     <name>Christophe Robin</name>
     <user>crobin</user>
     <email>crobin@php.net</email>
     <active>yes</active>
   </lead>
-  <date>2012-04-17</date>
+  <date>2012-04-19</date>
   <version>
-    <release>0.2.1</release><api>0.2.1</api>
+    <release>1.0.0</release><api>1.0.0</api>
   </version>
   <stability>
     <release>stable</release><api>stable</api>
   </stability>
   <license uri="http://www.php.net/license">PHP License</license>
   <notes>
-    * Fixed compilation for 5.4
+    * Fixed package
+    * Fixed compilation issue on 5.3
+    * Bumped version to 1.0.0 to prevent PECL from complaining about the version
   </notes>
   <contents>
     <dir name="/">
@@ -34,15 +34,17 @@
       <file name="php_spidermonkey.h" role="src">
         <tasks:replace from="@PACKAGE_VERSION@" to="version" type="package-info" />
       </file>
-      <file name="tests/js_functions.phpt" role="test"/>
-      <file name="tests/js_objects.phpt" role="test"/>
-      <file name="tests/js_streams.phpt" role="test"/>
-      <file name="tests/js_types.phpt" role="test"/>
-      <file name="tests/bug16866.phpt" role="test"/>
-      <file name="tests/bug16876.phpt" role="test"/>
-      <file name="tests/bug16890.phpt" role="test"/>
-      <file name="tests/bug16983.phpt" role="test"/>
-      <file name="tests/bug22838.phpt" role="test"/>
+      <dir name="tests">
+        <file name="js_functions.phpt" role="test"/>
+        <file name="js_objects.phpt" role="test"/>
+        <file name="js_streams.phpt" role="test"/>
+        <file name="js_types.phpt" role="test"/>
+        <file name="bug16866.phpt" role="test"/>
+        <file name="bug16876.phpt" role="test"/>
+        <file name="bug16890.phpt" role="test"/>
+        <file name="bug16983.phpt" role="test"/>
+        <file name="bug22838.phpt" role="test"/>
+      </dir>
     </dir>
   </contents>
   <dependencies>
