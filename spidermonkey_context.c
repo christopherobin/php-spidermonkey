@@ -254,7 +254,7 @@ PHP_METHOD(JSContext, setVersion)
 	}
 
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	old_version = JS_SetVersion(intern->ct, version);
+	old_version = JS_SetVersion(intern->ct, (JSVersion)version);
 	
 	if (JS_GetVersion(intern->ct) == version)
 	{
@@ -292,7 +292,7 @@ PHP_METHOD(JSContext, getVersionString)
 		RETURN_NULL();
 	}
 
-	version_str = JS_VersionToString(version);
+	version_str = JS_VersionToString((JSVersion)version);
 	l = strlen(version_str);
 
 	RETVAL_STRINGL(estrndup(version_str, l), l, 0);
