@@ -26,7 +26,10 @@
 /* TODO: change that to an exception */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	/* throw error */
 	zend_throw_exception(zend_exception_get_default(TSRMLS_C), (char *) message, 0 TSRMLS_CC);
 }
@@ -54,7 +57,10 @@ JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval
 JSBool generic_call(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+#ifdef ZTS
+	TSRMLS_FETCH(); /* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+#endif
 	JSFunction				*func;
 	JSString				*jfunc_name;
 	JSClass					*class;
@@ -149,7 +155,10 @@ JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv
 JSBool generic_constructor(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+#endif
 	JSFunction				*class;
 	JSString				*jclass_name;
 	char					*class_name;
@@ -307,7 +316,10 @@ JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 	JSClass					*class;
@@ -362,7 +374,10 @@ JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
 JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsid id, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jsobject_ref		*jsref;
 	php_jscontext_object	*intern;
 	JSClass					*class;

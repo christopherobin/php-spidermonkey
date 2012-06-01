@@ -29,7 +29,10 @@ JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
@@ -99,7 +102,10 @@ JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, 
 JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
@@ -170,7 +176,10 @@ JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
@@ -228,7 +237,10 @@ JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, js
 JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
@@ -300,7 +312,10 @@ JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsv
 JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp)
 #endif
 {
-	TSRMLS_FETCH();
+	#ifdef ZTS
+	TSRMLS_FETCH();			/* MSVC9 : NULL statement, C compiler won't allow variable definitions below this line.
+								Cannot compile as C++ because conflict with the name 'class' */
+	#endif
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;

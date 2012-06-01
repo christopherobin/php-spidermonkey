@@ -20,10 +20,19 @@
 */
 
 #include "php_spidermonkey.h"
+#include "standard/info.h"
 
 static int le_jscontext_descriptor;
 
+#ifdef __CPP
+extern "C" {
+#endif
+
 ZEND_DECLARE_MODULE_GLOBALS(spidermonkey);
+
+#ifdef __CPP
+}
+#endif
 
 zend_module_entry spidermonkey_module_entry = {
 	STANDARD_MODULE_HEADER,
@@ -70,7 +79,7 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 	 * destroy it
 	 */
 	if (intern->ct != (JSContext*)NULL)
-		JS_DestroyContext(intern->ct);
+		JS_DestroyContext((JSContext *)intern->ct);
 
 	if (intern->ec_ht != NULL)
 	{
@@ -481,7 +490,6 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			jsref->ht = NULL;
 			jsref->obj = val;
 			/* auto define functions for stream */
-			php_stream *stream;
 			php_stream_from_zval_no_verify(stream, &val);
 
 			if (stream != NULL) {
