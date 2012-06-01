@@ -26,7 +26,7 @@
 /* Define Extension Properties */
 #define PHP_SPIDERMONKEY_EXTNAME	"spidermonkey"
 #define PHP_SPIDERMONKEY_MINFO_NAME "SpiderMonkey"
-#define PHP_SPIDERMONKEY_EXTVER		"@PACKAGE_VERSION@"
+#define PHP_SPIDERMONKEY_EXTVER		"1.0.0"
 
 /* Import configure options
    when building outside of
@@ -37,6 +37,7 @@
 
 /* Include PHP Standard Header */
 #include "php.h"
+#include "zend_exceptions.h"
 #define XP_UNIX
 /* Include JSAPI Header */
 #include "jsapi.h"
