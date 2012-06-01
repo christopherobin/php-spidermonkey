@@ -3,18 +3,22 @@
 // $Revision$
 // vim:ft=javascript
 
+// edited to link to static build of spidermonkey,
+// and assumes lib and headers are copied to the 'deps' area of the PHP environment.
+
 ARG_WITH("spidermonkey", "spidermonkey support", "no");
 
 if (PHP_SPIDERMONKEY != "no") {
     if (CHECK_LIB("js32.lib", "spidermonkey", PHP_SPIDERMONKEY) &&
-        CHECK_HEADER_ADD_INCLUDE("jsapi.h", "CFLAGS_SPIDERMONKEY", PHP_SPIDERMONKEY + "\\include\\js")) {
+    		CHECK_LIB("winmm.lib", "spidermonkey") &&
+        CHECK_HEADER_ADD_INCLUDE("jsapi.h", "CFLAGS_SPIDERMONKEY", PHP_SPIDERMONKEY + ";" + PHP_PHP_BUILD + "\\include\\js")) {
 
         EXTENSION("spidermonkey", "spidermonkey.c spidermonkey_context.c spidermonkey_external.c spidermonkey_streams.c");
 
         AC_DEFINE("HAVE_SPIDERMONKEY", 1, "Have SpiderMonkey library");
-        ADD_FLAG("CFLAGS_SPIDERMONKEY", "/D XP_WIN /D WIN32");
+        ADD_FLAG("CFLAGS_SPIDERMONKEY", "/D XP_WIN /D WIN32 /D STATIC_JS_API");
 
-    } else {
+	} else {
         WARNING("spidermonkey not enabled; libraries and headers not found");
     }
 
