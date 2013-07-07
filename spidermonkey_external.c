@@ -27,8 +27,14 @@
 void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 {
 	TSRMLS_FETCH();
-	/* throw error */
-	zend_throw_exception(zend_exception_get_default(TSRMLS_C), (char *) message, 0 TSRMLS_CC);
+
+	if ((report->flags & JSREPORT_WARNING) || (report->flags & JSREPORT_STRICT)) {
+		// emit a warning
+		php_error_docref(NULL TSRMLS_CC, report->flags & JSREPORT_WARNING ? E_WARNING : E_STRICT, message);
+	} else {
+		/* throw error */
+		zend_throw_exception(zend_exception_get_default(TSRMLS_C), (char *) message, report->errorNumber TSRMLS_CC);
+	}
 }
 
 /* this function set a property on an object */
