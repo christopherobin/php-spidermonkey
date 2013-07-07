@@ -19,6 +19,10 @@
   $Revision$
 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php_spidermonkey.h"
 
 static int le_jscontext_descriptor;
@@ -41,6 +45,12 @@ zend_module_entry spidermonkey_module_entry = {
 #ifdef COMPILE_DL_SPIDERMONKEY
 ZEND_GET_MODULE(spidermonkey)
 #endif
+
+/* Out INI values */
+PHP_INI_BEGIN()
+// 8388608 is 8MB
+PHP_INI_ENTRY("spidermonkey.gc_mem_threshold", PHP_JSRUNTIME_GC_MEMORY_THRESHOLD, PHP_INI_ALL, spidermonkey_ini_update)
+PHP_INI_END()
 
 /********************************
 * JSCONTEXT STATIC CODE
@@ -66,9 +76,8 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 {
 	php_jscontext_object *intern = (php_jscontext_object *)object;
 
-	/* if a context is found ( which should be the case )
-	 * destroy it
-	 */
+	// if a context is found ( which should be the case )
+	// destroy it
 	if (intern->ct != (JSContext*)NULL)
 		JS_DestroyContext(intern->ct);
 
@@ -76,6 +85,21 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 	{
 		zend_hash_destroy(intern->ec_ht);
 		FREE_HASHTABLE(intern->ec_ht);
+	}
+
+	// we also need to clear up any callback we may have stored
+	if (intern->jsref != NULL)
+	{
+		if (intern->jsref->ht != NULL) {
+			PHPJS_FOREACH(intern->jsref->ht) {
+				php_callback *callback;
+				PHPJS_FOREACH_ENTRY(intern->jsref->ht, callback);
+				zval_ptr_dtor(&callback->fci.function_name);
+			}
+			zend_hash_destroy(intern->jsref->ht);
+			FREE_HASHTABLE(intern->jsref->ht);
+		}
+		efree(intern->jsref);
 	}
 
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
@@ -100,7 +124,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* if no runtime is found create one */
 	if (SPIDERMONKEY_G(rt) == NULL)
 	{
-		SPIDERMONKEY_G(rt) = JS_NewRuntime(PHP_JSRUNTIME_GC_MEMORY_THRESHOLD);
+		SPIDERMONKEY_G(rt) = JS_NewRuntime(INI_INT("spidermonkey.gc_mem_threshold"));
 	}
 
 	/* exported classes hashlist */
@@ -187,9 +211,12 @@ PHP_MINIT_FUNCTION(spidermonkey)
 {
 	zend_class_entry ce;
 
-	/*  CONSTANTS */
+	// INI VALUES
+	REGISTER_INI_ENTRIES();
 
-	/*  OPTIONS */
+	// CONSTANTS
+
+	// OPTIONS
 	REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",				 JSOPTION_ATLINE,				 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",			 JSOPTION_COMPILE_N_GO,			 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_DONT_REPORT_UNCAUGHT",	 JSOPTION_DONT_REPORT_UNCAUGHT,	 CONST_CS | CONST_PERSISTENT);
@@ -213,22 +240,22 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	REGISTER_LONG_CONSTANT("JSVERSION_1_7",	 JSVERSION_1_7,	  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSVERSION_DEFAULT", JSVERSION_DEFAULT,  CONST_CS | CONST_PERSISTENT);
 
-	/*  CLASS INIT */
+	// CLASS INIT
 #ifdef ZTS
-	/*ts_allocate_id(&spidermonkey_globals_id, sizeof(spidermonkey_globals), NULL, NULL);*/
+	//ts_allocate_id(&spidermonkey_globals_id, sizeof(spidermonkey_globals), NULL, NULL);
 	ZEND_INIT_MODULE_GLOBALS(spidermonkey, NULL, NULL);
 #endif
 
 	SPIDERMONKEY_G(rt) = NULL;
 
-	/* here we set handlers to zero, meaning that we have no handlers set */
+	// here we set handlers to zero, meaning that we have no handlers set
 	memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 
-	/*  init JSContext class */
+	// init JSContext class
 	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSC_NAME, php_spidermonkey_jsc_functions);
-	/* this function will be called when the object is created by php */
+	// this function will be called when the object is created by php
 	ce.create_object = php_jscontext_object_new;
-	/* register class in PHP */
+	// register class in PHP
 	php_spidermonkey_jsc_entry = zend_register_internal_class(&ce TSRMLS_CC);
 
 	return SUCCESS;
@@ -260,6 +287,13 @@ PHP_MINFO_FUNCTION(spidermonkey)
 	php_info_print_table_row(2, "Version", PHP_SPIDERMONKEY_EXTVER);
 	php_info_print_table_row(2, "LibJS Version", JS_GetImplementationVersion());
 	php_info_print_table_end();
+}
+
+PHP_INI_MH(spidermonkey_ini_update) {
+	// if the runtime is already here, emit a warning
+	if (SPIDERMONKEY_G(rt) != NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "JS runtime is already started, update of spidermonkey.gc_mem_threshold ignored.");
+	}
 }
 
 /*  convert a given jsval in a context to a zval, for PHP access */

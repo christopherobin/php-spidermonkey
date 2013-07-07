@@ -41,7 +41,7 @@
 /* Include JSAPI Header */
 #include "jsapi.h"
 
-#define PHP_JSRUNTIME_GC_MEMORY_THRESHOLD   8L * 1024L * 1024L
+#define PHP_JSRUNTIME_GC_MEMORY_THRESHOLD   "8388608"
 
 #define PHP_SPIDERMONKEY_JSC_NAME			"JSContext"
 #define PHP_JSCONTEXT_DESCRIPTOR_RES_NAME   "Javascript Context"
@@ -68,6 +68,12 @@ ZEND_END_MODULE_GLOBALS(spidermonkey)
 #define PHPJS_START(cx)
 #define PHPJS_END(cx)
 #endif
+
+// useful for iterating on php hashtables
+#define PHPJS_FOREACH(ht) for (zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
+#define PHPJS_FOREACH_ENTRY(ht,dest) if (zend_hash_get_current_data(ht,(void**)& dest) == FAILURE) {\
+  continue;\
+}
 
 /* Used by JSContext to store callbacks */
 typedef struct _php_callback {
@@ -117,17 +123,19 @@ PHP_MINIT_FUNCTION(spidermonkey);
 PHP_MSHUTDOWN_FUNCTION(spidermonkey);
 PHP_RSHUTDOWN_FUNCTION(spidermonkey);
 PHP_MINFO_FUNCTION(spidermonkey);
+/* For intercepting late ini modification */
+PHP_INI_MH(spidermonkey_ini_update);
 /* JSContext methods */
 PHP_METHOD(JSContext,	evaluateScript);
-PHP_METHOD(JSContext,   registerFunction);
-PHP_METHOD(JSContext,   registerClass);
-PHP_METHOD(JSContext,   assign);
-PHP_METHOD(JSContext,   setOptions);
-PHP_METHOD(JSContext,   toggleOptions);
-PHP_METHOD(JSContext,   getOptions);
-PHP_METHOD(JSContext,   setVersion);
-PHP_METHOD(JSContext,   getVersion);
-PHP_METHOD(JSContext,   getVersionString);
+PHP_METHOD(JSContext, registerFunction);
+PHP_METHOD(JSContext, registerClass);
+PHP_METHOD(JSContext, assign);
+PHP_METHOD(JSContext, setOptions);
+PHP_METHOD(JSContext, toggleOptions);
+PHP_METHOD(JSContext, getOptions);
+PHP_METHOD(JSContext, setVersion);
+PHP_METHOD(JSContext, getVersion);
+PHP_METHOD(JSContext, getVersionString);
 
 /**
  * {{{
