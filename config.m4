@@ -36,7 +36,7 @@ if test "$PHP_SPIDERMONKEY" != "no"; then
     done
     # test for the libname independantely
     for j in js mozjs mozjs185; do
-      test -f $i/lib/lib$j.so && SPIDERMONKEY_LIBNAME=$j && break
+      (test -f $i/lib/lib$j.so || test -f $i/lib/lib$j.dylib) && SPIDERMONKEY_LIBNAME=$j && break
     done
     test -f $i/include/$j/jsapi.h && break
   done
