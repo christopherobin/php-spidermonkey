@@ -1,56 +1,24 @@
-AC_DEFUN([PHP_SPIDERMONKEY_CHECK_VERSION],[
-  old_CPPFLAGS=$CPPFLAGS
-  CPPFLAGS=-I$SPIDERMONKEY_INCDIR
-  AC_MSG_CHECKING(for spidermonkey version)
-  if test -f $SPIDERMONKEY_INCDIR/jsconfig.h; then
-    SPIDERMONKEY_VERSION_H="jsconfig.h"
-  else
-    if test -f $SPIDERMONKEY_INCDIR/jsversion.h; then
-      SPIDERMONKEY_VERSION_H="jsversion.h"
-    fi
-  fi
-  if test -z "$SPIDERMONKEY_VERSION_H"; then
-    AC_MSG_ERROR(unknown version of libjs.)
-  else
-    AC_EGREP_CPP(yes,[
-#include <$SPIDERMONKEY_VERSION_H>
-#if JS_VERSION >= 170
-  yes
-#endif
-    ],[
-      AC_MSG_RESULT(>= 1.7.0)
-    ],[
-      AC_MSG_ERROR(libjs version 1.7.0 or greater required.)
-    ])
-  fi
-  CPPFLAGS=$old_CPPFLAGS
-])  
-
 PHP_ARG_WITH(spidermonkey, whether to enable spidermonkey support,
 [  --with-spidermonkey[=DIR]     Enable spidermonkey support])
 
 if test "$PHP_SPIDERMONKEY" != "no"; then
   for i in $PHP_SPIDERMONKEY /usr/local /usr; do
-    for j in js mozjs mozjs185; do
-      test -f $i/include/$j/jsapi.h && SPIDERMONKEY_BASEDIR=$i && SPIDERMONKEY_INCDIR=$i/include/$j && break
-    done
-    # test for the libname independantely
-    for j in js mozjs mozjs185; do
-      (test -f $i/lib/lib$j.so || test -f $i/lib/lib$j.dylib) && SPIDERMONKEY_LIBNAME=$j && break
-    done
-    test -f $i/include/$j/jsapi.h && break
+  	test -f $i/bin/js24-config && SPIDERMONKEY_CONFIG=$i/bin/js24-config && break
   done
 
-  if test -z "$SPIDERMONKEY_INCDIR"; then
-    AC_MSG_ERROR(jsapi.h not found. Please reinstall libjs.)
+  if test -z "$SPIDERMONKEY_CONFIG"; then
+    AC_MSG_ERROR(js24-config not found. Please reinstall mozjs.)
   fi
+  
+  SPIDERMONKEY_INCLUDE=`$SPIDERMONKEY_CONFIG --includedir`
+  SPIDERMONKEY_LIBDIR=`$SPIDERMONKEY_CONFIG --libdir`
+  SPIDERMONKEY_CFLAGS=`$SPIDERMONKEY_CONFIG --cflags`
 
-  PHP_SPIDERMONKEY_CHECK_VERSION
-
-  PHP_ADD_LIBRARY_WITH_PATH($SPIDERMONKEY_LIBNAME, $SPIDERMONKEY_BASEDIR/$PHP_LIBDIR, SPIDERMONKEY_SHARED_LIBADD)
-  PHP_ADD_INCLUDE($SPIDERMONKEY_INCDIR)
+  PHP_REQUIRE_CXX()
+  PHP_ADD_LIBRARY_WITH_PATH(mozjs-24, $SPIDERMONKEY_LIBDIR, SPIDERMONKEY_SHARED_LIBADD)
+  PHP_ADD_INCLUDE($SPIDERMONKEY_INCLUDE)
   PHP_SUBST(SPIDERMONKEY_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(spidermonkey, spidermonkey.c spidermonkey_context.c spidermonkey_external.c spidermonkey_streams.c, $ext_shared)
+  PHP_NEW_EXTENSION(spidermonkey, spidermonkey.cc spidermonkey_context.cc spidermonkey_external.cc, $ext_shared,,$SPIDERMONKEY_CFLAGS -Wno-write-strings -Wno-invalid-offsetof)
 fi
 

@@ -1,0 +1,5 @@
+# Standard IDE files
+*.swp
+*~
+/.project
+/.settings

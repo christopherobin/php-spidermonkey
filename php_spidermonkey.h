@@ -36,9 +36,12 @@
 #endif
 
 /* Include PHP Standard Header */
+extern "C" {
 #include "php.h"
-#define XP_UNIX
+}
+
 /* Include JSAPI Header */
+#define XP_UNIX
 #include "jsapi.h"
 
 #define PHP_JSRUNTIME_GC_MEMORY_THRESHOLD   "8388608"
@@ -61,13 +64,8 @@ ZEND_END_MODULE_GLOBALS(spidermonkey)
 #endif
 
 /* those are necessary for threadsafe builds since 1.8.5 */
-#if JS_VERSION >= 180
 #define PHPJS_START(cx) JS_BeginRequest(cx)
 #define PHPJS_END(cx) JS_EndRequest(cx)
-#else
-#define PHPJS_START(cx)
-#define PHPJS_END(cx)
-#endif
 
 // useful for iterating on php hashtables
 #define PHPJS_FOREACH(ht) for (zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
@@ -101,6 +99,7 @@ typedef struct _php_jscontext_object  {
 	JSClass					global_class;
 	JSClass					script_class;
 	JSObject				*obj;
+	JSCompartment			*cpt;
 } php_jscontext_object;
 
 typedef struct _php_jsparent {
@@ -115,7 +114,7 @@ extern zend_class_entry *php_spidermonkey_jsc_entry;
  * to a zval for PHP use */
 void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val TSRMLS_DC);
 #define jsval_to_zval(rval, ctx, jval) _jsval_to_zval(rval, ctx, jval, NULL TSRMLS_CC)
-void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparent *parent TSRMLS_DC);
+void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Value> rval, php_jsparent *parent TSRMLS_DC);
 void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC);
 
 /* init/shutdown functions */
@@ -144,39 +143,18 @@ PHP_METHOD(JSContext, getVersionString);
  * PHP. You need to declare them in the global_functions
  * struct in JSContext's constructor
  */
- #if JS_VERSION < 185
-JSBool generic_call(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-JSBool generic_constructor(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-/* streams */
-JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval);
-#else
-JSBool generic_call(JSContext *cx, uintN argc, jsval *vp);
-JSBool generic_constructor(JSContext *cx, uintN argc, jsval *vp);
-/* streams */
-JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp);
-JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp);
-JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp);
-JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp);
-JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp);
-#endif
+JSBool generic_call(JSContext *cx, unsigned argc, JS::Value *vp);
+JSBool generic_constructor(JSContext *cx, unsigned argc, JS::Value *vp);
 /* }}} */
 
 /* Methods used/exported in JS */
 void reportError(JSContext *cx, const char *message, JSErrorReport *report);
-void JS_FinalizePHP(JSContext *cx, JSObject *obj);
-#if JS_VERSION < 185
-JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsval id);
-JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
-JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsval id, jsval *vp);
-#else
-JSBool JS_ResolvePHP(JSContext *cx, JSObject *obj, jsid id);
-JSBool JS_PropertySetterPHP(JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp);
-JSBool JS_PropertyGetterPHP(JSContext *cx, JSObject *obj, jsid id, jsval *vp);
-#endif
+void JS_FinalizePHP(JSFreeOp *fop, JSObject *obj);
+JSBool JS_ResolvePHP(JSContext *cx, JS::Handle<JSObject*> obj, JS::Handle<jsid> id);
+JSBool JS_PropertyGetterPHP(JSContext *cx, JS::Handle<JSObject*> obj, JS::Handle<jsid> id,
+        JS::MutableHandle<JS::Value> vp);
+JSBool JS_PropertySetterPHP(JSContext *cx, JS::Handle<JSObject*> obj, JS::Handle<jsid> id, JSBool strict,
+        JS::MutableHandle<JS::Value> vp);
 
 /* Define the entry point symbol
  * Zend will use when loading this module

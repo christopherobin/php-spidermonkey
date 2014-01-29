@@ -25,7 +25,10 @@
 
 #include "php_spidermonkey.h"
 
-static int le_jscontext_descriptor;
+#include <ext/standard/info.h>
+#include <zend_exceptions.h>
+
+//static int le_jscontext_descriptor;
 
 ZEND_DECLARE_MODULE_GLOBALS(spidermonkey);
 
@@ -43,7 +46,9 @@ zend_module_entry spidermonkey_module_entry = {
 };
 
 #ifdef COMPILE_DL_SPIDERMONKEY
+extern "C" {
 ZEND_GET_MODULE(spidermonkey)
+}
 #endif
 
 /* Out INI values */
@@ -78,8 +83,10 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 
 	// if a context is found ( which should be the case )
 	// destroy it
-	if (intern->ct != (JSContext*)NULL)
+	if (intern->ct != (JSContext*)NULL) {
+		JS_LeaveCompartment(intern->ct, intern->cpt);
 		JS_DestroyContext(intern->ct);
+	}
 
 	if (intern->ec_ht != NULL)
 	{
@@ -124,7 +131,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* if no runtime is found create one */
 	if (SPIDERMONKEY_G(rt) == NULL)
 	{
-		SPIDERMONKEY_G(rt) = JS_NewRuntime(INI_INT("spidermonkey.gc_mem_threshold"));
+		SPIDERMONKEY_G(rt) = JS_NewRuntime(INI_INT("spidermonkey.gc_mem_threshold"), JS_NO_HELPER_THREADS);
 	}
 
 	/* exported classes hashlist */
@@ -152,7 +159,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* Mandatory non-null function pointer members. */
 	intern->script_class.addProperty	= JS_PropertyStub;
-	intern->script_class.delProperty	= JS_PropertyStub;
+	intern->script_class.delProperty	= JS_DeletePropertyStub;
 	intern->script_class.getProperty	= JS_PropertyGetterPHP;
 	intern->script_class.setProperty	= JS_PropertySetterPHP;
 	intern->script_class.resolve		= JS_ResolvePHP;
@@ -164,31 +171,25 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	intern->global_class.name			= "PHPGlobalClass";
 	intern->global_class.flags			= JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE;
 
+	JSAutoRequest ar(intern->ct);
+
 	/* says that our script runs in global scope */
-#if JS_VERSION < 185
-	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX);
-#else
-	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX | JSOPTION_JIT | JSOPTION_METHODJIT);
-#endif
+	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX | JSOPTION_ASMJS);
 
 	/* set the error callback */
 	JS_SetErrorReporter(intern->ct, reportError);
 
-	/* use the latest javascript version */
-	JS_SetVersion(intern->ct, JSVERSION_LATEST);
-
 	/* create global object for execution */
-#if JS_VERSION < 185
-	intern->obj = JS_NewObject(intern->ct, &intern->global_class, NULL, NULL);
-#else
-	intern->obj = JS_NewCompartmentAndGlobalObject(intern->ct, &intern->global_class, NULL);
-#endif
+	intern->obj = JS_NewGlobalObject(intern->ct, &intern->global_class, nullptr);
 
-	/* store pointer to HashTable */
-	JS_SetPrivate(intern->ct, intern->obj, intern->jsref);
+	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
+	JS_SetGlobalObject(intern->ct, intern->obj);
 
 	/* initialize standard JS classes */
 	JS_InitStandardClasses(intern->ct, intern->obj);
+
+	/* store pointer to HashTable */
+	JS_SetPrivate(intern->obj, intern->jsref);
 
 	/* create zend object */
 	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
@@ -217,25 +218,16 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	// CONSTANTS
 
 	// OPTIONS
-	REGISTER_LONG_CONSTANT("JSOPTION_ATLINE",				 JSOPTION_ATLINE,				 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_COMPILE_N_GO",			 JSOPTION_COMPILE_N_GO,			 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_DONT_REPORT_UNCAUGHT",	 JSOPTION_DONT_REPORT_UNCAUGHT,	 CONST_CS | CONST_PERSISTENT);
 #ifdef JSOPTION_NATIVE_BRANCH_CALLBACK /* Fix for version 1.9 */
 	REGISTER_LONG_CONSTANT("JSOPTION_NATIVE_BRANCH_CALLBACK",JSOPTION_NATIVE_BRANCH_CALLBACK,CONST_CS | CONST_PERSISTENT);
 #endif
-	REGISTER_LONG_CONSTANT("JSOPTION_STRICT",				 JSOPTION_STRICT,				 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_VAROBJFIX",			 JSOPTION_VAROBJFIX,			 CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSOPTION_WERROR",			 	 JSOPTION_WERROR,				 CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSOPTION_XML",					 JSOPTION_XML,					 CONST_CS | CONST_PERSISTENT);
 
 	/*  VERSIONS */
-	REGISTER_LONG_CONSTANT("JSVERSION_1_0",	 JSVERSION_1_0,	  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSVERSION_1_1",	 JSVERSION_1_1,	  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSVERSION_1_2",	 JSVERSION_1_2,	  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSVERSION_1_3",	 JSVERSION_1_3,	  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSVERSION_1_4",	 JSVERSION_1_4,	  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSVERSION_ECMA_3",  JSVERSION_ECMA_3,   CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("JSVERSION_1_5",	 JSVERSION_1_5,	  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSVERSION_1_6",	 JSVERSION_1_6,	  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSVERSION_1_7",	 JSVERSION_1_7,	  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("JSVERSION_DEFAULT", JSVERSION_DEFAULT,  CONST_CS | CONST_PERSISTENT);
@@ -297,51 +289,37 @@ PHP_INI_MH(spidermonkey_ini_update) {
 }
 
 /*  convert a given jsval in a context to a zval, for PHP access */
-void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparent *parent TSRMLS_DC)
+void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Value> rval, php_jsparent *parent TSRMLS_DC)
 {
-	jsval   rval;
-
 	PHPJS_START(ctx);
 
-	rval = *jval;
-
-	if (JSVAL_IS_NULL(rval) || JSVAL_IS_VOID(rval))
+	if (rval.isNullOrUndefined())
 	{
 		RETVAL_NULL();
 	}
-	else if (JSVAL_IS_DOUBLE(rval))
+	else if (rval.isDouble())
 	{
-#if JS_VERSION < 185
-		RETVAL_DOUBLE(*JSVAL_TO_DOUBLE(rval));
-#else
-		RETVAL_DOUBLE(JSVAL_TO_DOUBLE(rval));
-#endif
+		RETVAL_DOUBLE(rval.toDouble());
 	}
-	else if (JSVAL_IS_INT(rval))
+	else if (rval.isInt32())
 	{
-		RETVAL_LONG(JSVAL_TO_INT(rval));
+		RETVAL_LONG(rval.toInt32());
 	}
-	else if (JSVAL_IS_STRING(rval))
+	else if (rval.isString())
 	{
 		JSString *str;
 		int len;
 		/* first we convert the jsval to a JSString */
-		str = JSVAL_TO_STRING(rval);
+		str = rval.toString();
 		if (str != NULL)
 		{
 			/* check string length and return an empty string if the
 			   js string is empty (bug 16876) */
 			if ((len = JS_GetStringLength(str)) > 0) {
 				/* then we retrieve the pointer to the string */
-#if JS_VERSION < 185
-				char *txt = JS_GetStringBytes(str);
-				RETVAL_STRINGL(txt, len, 1);
-#else
-				/* because version 1.8.5 supports unicode, we must encode strings */
 				char *txt = JS_EncodeString(ctx, str);
 				RETVAL_STRINGL(txt, strlen(txt), 1);
 				JS_free(ctx, txt);
-#endif
 			}
 			else
 			{
@@ -353,9 +331,9 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 			RETVAL_FALSE;
 		}
 	}
-	else if (JSVAL_IS_BOOLEAN(rval))
+	else if (rval.isBoolean())
 	{
-		if (rval == JSVAL_TRUE)
+		if (rval.isTrue())
 		{
 			RETVAL_TRUE;
 		}
@@ -364,9 +342,9 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 			RETVAL_FALSE;
 		}
 	}
-	else if (JSVAL_IS_OBJECT(rval))
+	else if (rval.isObject())
 	{
-		JSIdArray				*it;
+		JSObject				*it;
 		JSObject				*obj = NULL;
 		int						i;
 		php_jscontext_object	*intern;
@@ -374,14 +352,15 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 		zval					*zobj;
         php_jsparent            jsthis;
 
-		obj = JSVAL_TO_OBJECT(rval);
+		obj = rval.toObjectOrNull();
 
-		/*if (JS_ObjectIsFunction(ctx, obj)) {
-			// object is a function
-		}*/
+		if (obj == nullptr) {
+			PHPJS_END(ctx);
+			RETURN_NULL();
+		}
 
         /* your shouldn't be able to reference the global object */
-        if (obj == JS_GetGlobalObject(ctx)) {
+        if (obj == JS_GetGlobalForScopeChain(ctx)) {
 	        PHPJS_END(ctx);
             zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Trying to reference global object", 0 TSRMLS_CC);
             return;
@@ -389,78 +368,102 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, jsval *jval, php_jsparen
 
 		intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 
-		if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == NULL || jsref->obj == NULL)
-		{
-            zobj = NULL;
-            while (parent != NULL) {
-                if (parent->obj == obj) {
-                    zobj = parent->zobj;
-                    break;
-                }
-                parent = parent->parent;
-            }
+		if (JS_IsArrayObject(ctx, obj)) {
+			array_init(return_value);
 
-            if (zobj == NULL)
-			{
-				/* create stdClass */
-				object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
-				/* store value */
-                jsthis.obj     = obj;
-                jsthis.zobj    = return_value;
-                jsthis.parent  = parent;
+			uint32_t len = 0;
+			if (JS_GetArrayLength(ctx, obj, &len) == JS_TRUE) {
+				if (len > 0) {
+					for (uint32_t i = 0; i < len; i++) {
+						jsval value;
 
-				/* then iterate on each property */
-				it = JS_Enumerate(ctx, obj);
-
-				for (i = 0; i < it->length; i++)
-				{
-					jsval val;
-					jsid id = it->vector[i];
-
-					if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
-					{
-						JSString *str;
-						jsval item_val;
-						char *name;
-
-						str = JS_ValueToString(ctx, val);
-
-						/* Retrieve property name */
-#if JS_VERSION < 185
-						name = JS_GetStringBytes(str);
-#else
-						/* because version 1.8.5 supports unicode, we must encode strings */
-						name = JS_EncodeString(ctx, str);
-#endif
-
-						/* Try to read property */
-						if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
-						{
+						if (JS_LookupElement(ctx, obj, i, &value) == JS_TRUE) {
 							zval *fval;
 
 							/* alloc memory for this zval */
 							MAKE_STD_ZVAL(fval);
 							/* Call this function to convert a jsval to a zval */
-							_jsval_to_zval(fval, ctx, &item_val, &jsthis TSRMLS_CC);
-							/* Add property to our stdClass */
-							zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
+							jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&value));
+							/* Add property to our array */
+							add_index_zval(return_value, i, fval);
 							/* Destroy pointer to zval */
 							zval_ptr_dtor(&fval);
+
 						}
-#if JS_VERSION >= 185
-						JS_free(ctx, name);
-#endif
 					}
 				}
+			}
+		} else {
+			if ((jsref = (php_jsobject_ref*)JS_GetPrivate(obj)) == NULL || jsref->obj == NULL)
+			{
+				zobj = NULL;
+				while (parent != NULL) {
+					if (parent->obj == obj) {
+						zobj = parent->zobj;
+						break;
+					}
+					parent = parent->parent;
+				}
 
-				JS_DestroyIdArray(ctx, it);
-			} else {
-                RETVAL_ZVAL(zobj, 1, NULL);
-            }
-		}
-		else
-		{
-			RETVAL_ZVAL(jsref->obj, 1, NULL);
+				if (zobj == NULL)
+				{
+					/* create stdClass */
+					object_init_ex(return_value, ZEND_STANDARD_CLASS_DEF_PTR);
+					/* store value */
+					jsthis.obj     = obj;
+					jsthis.zobj    = return_value;
+					jsthis.parent  = parent;
+
+					/* then iterate on each property */
+					it = JS_NewPropertyIterator(ctx, obj);
+					php_printf("iterating on %p\n", obj);
+
+					jsid id;
+					while (JS_NextProperty(ctx, it, &id) == JS_TRUE)
+					{
+						jsval val;
+
+						if (JSID_IS_VOID(id)) {
+							php_printf("id is void, breaking\n");
+							break;
+						}
+
+						if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
+						{
+							JSString *str;
+							jsval item_val;
+							char *name;
+
+							str = JS_ValueToString(ctx, val);
+
+							/* Retrieve property name */
+							name = JS_EncodeString(ctx, str);
+
+							/* Try to read property */
+							if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
+							{
+								zval *fval;
+
+								/* alloc memory for this zval */
+								MAKE_STD_ZVAL(fval);
+								/* Call this function to convert a jsval to a zval */
+								_jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&item_val), &jsthis TSRMLS_CC);
+								/* Add property to our stdClass */
+								zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
+								/* Destroy pointer to zval */
+								zval_ptr_dtor(&fval);
+							}
+							JS_free(ctx, name);
+						}
+					}
+				} else {
+					RETVAL_ZVAL(zobj, 1, NULL);
+				}
+			}
+			else
+			{
+				RETVAL_ZVAL(jsref->obj, 1, NULL);
+			}
 		}
 	}
 	else /* something is wrong */
@@ -492,14 +495,14 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 	switch(Z_TYPE_P(val))
 	{
 		case IS_LONG:
-			JS_NewNumberValue(ctx, Z_LVAL_P(val), jval);
+			jval->setNumber((uint32_t)Z_LVAL_P(val));
 			break;
 		case IS_DOUBLE:
-			JS_NewNumberValue(ctx, Z_DVAL_P(val), jval);
+			jval->setNumber(Z_DVAL_P(val));
 			break;
 		case IS_STRING:
 			jstr = JS_NewStringCopyN(ctx, Z_STRVAL_P(val), Z_STRLEN_P(val));
-			*jval = STRING_TO_JSVAL(jstr);
+			jval->setString(jstr);
 			break;
 		case IS_BOOL:
 			*jval = BOOLEAN_TO_JSVAL(Z_BVAL_P(val));
@@ -528,16 +531,16 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 				js_const = INT_TO_JSVAL(SEEK_END);
 				JS_SetProperty(ctx, jobj, "SEEK_END", &js_const);
 				/* set stream functions */
-				JS_DefineFunction(ctx, jobj, "read", js_stream_read, 1, 0);
+				/*JS_DefineFunction(ctx, jobj, "read", js_stream_read, 1, 0);
 				JS_DefineFunction(ctx, jobj, "getline", js_stream_getline, 1, 0);
 				JS_DefineFunction(ctx, jobj, "getl", js_stream_getline, 1, 0);
 				JS_DefineFunction(ctx, jobj, "seek", js_stream_seek, 1, 0);
 				JS_DefineFunction(ctx, jobj, "write", js_stream_write, 1, 0);
-				JS_DefineFunction(ctx, jobj, "tell", js_stream_tell, 1, 0);
+				JS_DefineFunction(ctx, jobj, "tell", js_stream_tell, 1, 0);*/
 			}
 
 			/* store pointer to HashTable */
-			JS_SetPrivate(ctx, jobj, jsref);
+			JS_SetPrivate(jobj, jsref);
 
 			*jval = OBJECT_TO_JSVAL(jobj);
 			break;
@@ -556,7 +559,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			/* store pointer to object */
 			jsref->obj = val;
 			/* store pointer to HashTable */
-			JS_SetPrivate(ctx, jobj, jsref);
+			JS_SetPrivate(jobj, jsref);
 
 			/* retrieve class entry */
 			ce = Z_OBJCE_P(val);
