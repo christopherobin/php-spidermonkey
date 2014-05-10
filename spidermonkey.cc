@@ -350,7 +350,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 		php_jscontext_object	*intern;
 		php_jsobject_ref		*jsref;
 		zval					*zobj;
-        php_jsparent            jsthis;
+		php_jsparent			jsthis;
 
 		obj = rval.toObjectOrNull();
 
@@ -359,12 +359,12 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 			RETURN_NULL();
 		}
 
-        /* your shouldn't be able to reference the global object */
-        if (obj == JS_GetGlobalForScopeChain(ctx)) {
-	        PHPJS_END(ctx);
-            zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Trying to reference global object", 0 TSRMLS_CC);
-            return;
-        }
+		/* your shouldn't be able to reference the global object */
+		if (obj == JS_GetGlobalForScopeChain(ctx)) {
+			PHPJS_END(ctx);
+			zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Trying to reference global object", 0 TSRMLS_CC);
+			return;
+		}
 
 		intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 
@@ -386,11 +386,47 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 							jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&value));
 							/* Add property to our array */
 							add_index_zval(return_value, i, fval);
-							/* Destroy pointer to zval */
-							zval_ptr_dtor(&fval);
-
 						}
 					}
+				}
+			}
+
+			/* then iterate on each property */
+			it = JS_NewPropertyIterator(ctx, obj);
+
+			jsid id;
+			while (JS_NextProperty(ctx, it, &id) == JS_TRUE)
+			{
+				jsval val;
+
+				if (JSID_IS_VOID(id)) {
+					break;
+				}
+
+				if (JS_IdToValue(ctx, id, &val) == JS_TRUE)
+				{
+					JSString *str;
+					jsval item_val;
+					char *name;
+
+					str = JS_ValueToString(ctx, val);
+
+					/* Retrieve property name */
+					name = JS_EncodeString(ctx, str);
+
+					/* Try to read property */
+					if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
+					{
+						zval *fval;
+
+						/* alloc memory for this zval */
+						MAKE_STD_ZVAL(fval);
+						/* Call this function to convert a jsval to a zval */
+						jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&item_val));
+						/* Add property to our stdClass */
+						add_assoc_zval(return_value, name, fval);
+					}
+					JS_free(ctx, name);
 				}
 			}
 		} else {
@@ -416,7 +452,6 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 
 					/* then iterate on each property */
 					it = JS_NewPropertyIterator(ctx, obj);
-					php_printf("iterating on %p\n", obj);
 
 					jsid id;
 					while (JS_NextProperty(ctx, it, &id) == JS_TRUE)
@@ -424,7 +459,6 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 						jsval val;
 
 						if (JSID_IS_VOID(id)) {
-							php_printf("id is void, breaking\n");
 							break;
 						}
 
@@ -614,7 +648,10 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			ht = HASH_OF(val);
 
 			/* create JSObject */
-			jobj = JS_NewObject(ctx, NULL, NULL, NULL);
+			jobj = JS_NewArrayObject(ctx, 0, nullptr);
+
+			// prevent GC
+			JS_AddObjectRoot(ctx, &jobj);
 
 			/* foreach item */
 			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
@@ -636,8 +673,18 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 				if (type == HASH_KEY_IS_LONG)
 				{
-					sprintf(intIdx, "%ld", idx);
-					php_jsobject_set_property(ctx, jobj, intIdx, *ppzval TSRMLS_CC);
+					//sprintf(intIdx, "%ld", idx);
+					//php_jsobject_set_property(ctx, jobj, intIdx, *ppzval TSRMLS_CC);
+					jsval jarrval;
+
+					/* first convert zval to jsval */
+					zval_to_jsval(*ppzval, ctx, &jarrval TSRMLS_CC);
+
+					/* no ref behavior, just set a property */
+					//JSBool res = JS_SetProperty(ctx, obj, property_name, &jval);
+					//JSBool res = JS_SetElement(ctx, jobj, idx, &jarrval);
+					JSBool res = JS_DefineElement(ctx, jobj, idx, jarrval, nullptr, nullptr, 0);
+
 				}
 				else
 				{

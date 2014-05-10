@@ -49,7 +49,7 @@ void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_nam
 
 	/* no ref behavior, just set a property */
 	JSBool res = JS_SetProperty(ctx, obj, property_name, &jval);
-	php_printf("set prop %s on obj %p: %d\n", property_name, obj, res);
+    //php_printf("set prop %s on obj %p: %d\n", property_name, obj, res);
 	
 	PHPJS_END(ctx);
 }

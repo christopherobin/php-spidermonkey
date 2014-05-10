@@ -24,24 +24,24 @@ JS;
 $ctx->evaluateScript($js);
 ?>
 --EXPECTF--
-object(stdClass)#2 (4) {
-  ["0"]=>
+array(4) {
+  [0]=>
   int(1)
-  ["1"]=>
+  [1]=>
   NULL
-  ["2"]=>
+  [2]=>
   int(0)
-  ["3"]=>
+  [3]=>
   string(3) "str"
 }
-object(stdClass)#2 (4) {
-  ["0"]=>
+array(4) {
+  [0]=>
   int(1)
-  ["1"]=>
+  [1]=>
   NULL
-  ["2"]=>
+  [2]=>
   int(0)
-  ["3"]=>
+  [3]=>
   string(3) "str"
 }
 object(stdClass)#2 (1) {
