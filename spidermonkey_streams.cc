@@ -23,31 +23,27 @@
 
 /* this native is used for read from streams */
 
-#if JS_VERSION < 185
-JSBool js_stream_read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
-#else
-JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp)
-#endif
+JSBool js_stream_read(JSContext *ctx, unsigned argc, JS::Value *vp)
 {
 	TSRMLS_FETCH();
+	PHPJS_START(ctx);
+
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
-	JSClass					*class;
-#if JS_VERSION >= 185
-	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);
-#endif
+	JSClass					*cls;
+	JSObject				*obj  = JS_THIS_OBJECT(ctx, vp);
+	jsval					*argv = JS_ARGV(ctx, vp);
+	jsval					*rval = &JS_RVAL(ctx, vp);
 
-	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	class = &intern->script_class;
+	intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+	cls = &intern->script_class;
 
 	if (obj == intern->obj) {
-		class =&intern->global_class;
+		cls =&intern->global_class;
 	}
 
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, cls, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		JSString	*jstr;
@@ -66,83 +62,81 @@ JSBool js_stream_read(JSContext *cx, uintN argc, jsval *vp)
 
 		/* fetch php_stream */
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
-		
+
 		if (stream == NULL) {
-			reportError(cx, "Failed to read stream", NULL);
+			reportError(ctx, "Failed to read stream", NULL);
+			PHPJS_END(ctx);
 			return JS_FALSE;
 		}
 
-		buf = emalloc(buf_len * sizeof(char));
+		buf = (char*)emalloc(buf_len * sizeof(char));
 		memset(buf, 0, buf_len);
 
 		// read from string
 		nbytes = php_stream_read(stream, buf, buf_len);
 
 		if (nbytes > 0)	{
-			jstr = JS_NewStringCopyN(cx, buf, nbytes);
+			jstr = JS_NewStringCopyN(ctx, buf, nbytes);
 			*rval = STRING_TO_JSVAL(jstr);
 		}
 		else {
 			*rval = JSVAL_NULL;
 		}
-		
+
 		efree(buf);
 	}
 
+	PHPJS_END(ctx);
 	return JS_TRUE;
 }
 
 /* this native is used to retrieve a line from a stream */
-#if JS_VERSION < 185
-JSBool js_stream_getline(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
-#else
-JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp)
-#endif
+JSBool js_stream_getline(JSContext *ctx, unsigned argc, JS::Value *vp)
 {
 	TSRMLS_FETCH();
+	PHPJS_START(ctx);
+
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
-	JSClass					*class;
-#if JS_VERSION >= 185
-	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);
-#endif
+	JSClass					*cls;
+	JSObject				*obj  = JS_THIS_OBJECT(ctx, vp);
+	jsval					*argv = JS_ARGV(ctx, vp);
+	jsval					*rval = &JS_RVAL(ctx, vp);
 
-
-	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	class = &intern->script_class;
+	intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+	cls = &intern->script_class;
 
 	if (obj == intern->obj) {
-		class =&intern->global_class;
+		cls = &intern->global_class;
 	}
 
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, cls, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		JSString	*jstr;
 		char		*buf;
 		size_t		buf_len, nbytes;
-		
+
 		if (argc >= 1)
 		{
 			buf_len = JSVAL_TO_INT(argv[0]);
 		}
 		else
 		{
-			/* default buffer length is 4K */
+			// default buffer length is 4K
 			buf_len = 4096;
 		}
-		/* fetch php_stream */
+		// fetch php_stream
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
-		
+
 		if (stream == NULL) {
-			reportError(cx, "Failed to read stream", NULL);
+			reportError(ctx, "Failed to read stream", NULL);
+			PHPJS_END(ctx);
 			return JS_FALSE;
 		}
 
-		buf = emalloc(buf_len * sizeof(char));
+		buf = (char*)emalloc(buf_len * sizeof(char));
 
 		// read from string
 		if (php_stream_get_line(stream, buf, buf_len, &nbytes) == NULL) {
@@ -150,55 +144,54 @@ JSBool js_stream_getline(JSContext *cx, uintN argc, jsval *vp)
 		}
 
 		if (nbytes > 0)	{
-			jstr = JS_NewStringCopyN(cx, buf, nbytes);
+			jstr = JS_NewStringCopyN(ctx, buf, nbytes);
 			*rval = STRING_TO_JSVAL(jstr);
 		}
 		else {
 			*rval = JSVAL_NULL;
 		}
-		
+
 		efree(buf);
 	}
+
+	PHPJS_END(ctx);
 
 	return JS_TRUE;
 }
 
 /* this native is used to seek in a stream */
-#if JS_VERSION < 185
-JSBool js_stream_seek(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
-#else
-JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp)
-#endif
+JSBool js_stream_seek(JSContext *ctx, unsigned argc, JS::Value *vp)
 {
 	TSRMLS_FETCH();
+	PHPJS_START(ctx);
+
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
-	JSClass					*class;
-#if JS_VERSION >= 185
-	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);
-#endif
+	JSClass					*cls;
+	JSObject				*obj  = JS_THIS_OBJECT(ctx, vp);
+	jsval					*argv = JS_ARGV(ctx,vp);
+	jsval					*rval = &JS_RVAL(ctx,vp);
 
-	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	class = &intern->script_class;
+	intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+	cls = &intern->script_class;
 
 	if (obj == intern->obj) {
-		class =&intern->global_class;
+		cls =&intern->global_class;
 	}
 
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, cls, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE && argc >= 1) {
 		off_t	pos;
 		int		whence;
-		
-		/* fetch php_stream */
+
+		// fetch php_stream
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
-		
+
 		if (stream == NULL) {
-			reportError(cx, "Failed to access stream", NULL);
+			reportError(ctx, "Failed to access stream", NULL);
+			PHPJS_END(ctx);
 			return JS_FALSE;
 		}
 
@@ -208,66 +201,62 @@ JSBool js_stream_seek(JSContext *cx, uintN argc, jsval *vp)
 			whence = JSVAL_TO_INT(argv[1]);
 		}
 		else {
-			/* default buffer length is 4K */
+			// default buffer length is 4K
 			whence = SEEK_SET;
 		}
 
 		php_stream_seek(stream, pos, whence);
 
-		/* this function doesn't return anything */
+		// this function doesn't return anything
 		*rval = JSVAL_VOID;
 	}
+
+	PHPJS_END(ctx);
 
 	return JS_TRUE;
 }
 
 /* this native is used for writing to a stream */
-#if JS_VERSION < 185
-JSBool js_stream_write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
-#else
-JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
-#endif
+JSBool js_stream_write(JSContext *ctx, unsigned argc, JS::Value *vp)
 {
 	TSRMLS_FETCH();
+	PHPJS_START(ctx);
+
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
-	JSClass					*class;
-#if JS_VERSION >= 185
-	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);
-#endif
+	JSClass					*cls;
+	JSObject				*obj  = JS_THIS_OBJECT(ctx, vp);
+	jsval					*argv = JS_ARGV(ctx,vp);
+	jsval					*rval = &JS_RVAL(ctx,vp);
 
-	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	class = &intern->script_class;
+	intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+	cls = &intern->script_class;
 
 	if (obj == intern->obj) {
-		class =&intern->global_class;
+		cls =&intern->global_class;
 	}
 
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, cls, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE && argc >= 1) {
 		JSString	*jstr;
 		size_t		buf_len, nbytes;
 
-		/* fetch php_stream */
+		// fetch php_stream
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
-		
+
 		if (stream == NULL) {
-			reportError(cx, "Failed to write to stream", NULL);
+			reportError(ctx, "Failed to write to stream", NULL);
+			PHPJS_END(ctx);
 			return JS_FALSE;
 		}
 
-		jstr = JS_ValueToString(cx, argv[0]);
+		jstr = JS_ValueToString(ctx, argv[0]);
 		if (jstr != NULL) {
-			/* then we retrieve the pointer to the string */
-#if JS_VERSION < 185
-			char *txt = JS_GetStringBytes(jstr);
-#else
-			char *txt = JS_EncodeString(cx, jstr);
-#endif
+			// then we retrieve the pointer to the string
+			char *txt = JS_EncodeString(ctx, jstr);
+
 			if (argc >= 2)
 			{
 				buf_len = JSVAL_TO_INT(argv[1]);
@@ -278,64 +267,64 @@ JSBool js_stream_write(JSContext *cx, uintN argc, jsval *vp)
 				nbytes = php_stream_write_string(stream, txt);
 			}
 
-#if JS_VERSION >= 185
-			JS_free(cx, txt);
-#endif
+			JS_free(ctx, txt);
 		}
 		else {
-			reportError(cx, "Failed to convert type to string", NULL);
+			reportError(ctx, "Failed to convert type to string", NULL);
+			PHPJS_END(ctx);
 			return JS_FALSE;
 		}
-		
-		JS_NewNumberValue(cx, nbytes, rval);
+
+		JS_SET_RVAL(ctx, rval, JS_NumberValue(nbytes));
 	}
+
+	PHPJS_END(ctx);
 
 	return JS_TRUE;
 }
 
 /* this native is used for telling the position in the file */
-#if JS_VERSION < 185
-JSBool js_stream_tell(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
-#else
-JSBool js_stream_tell(JSContext *cx, uintN argc, jsval *vp)
-#endif
+JSBool js_stream_tell(JSContext *ctx, unsigned argc, JS::Value *vp)
 {
 	TSRMLS_FETCH();
+	PHPJS_START(ctx);
+
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
 	php_stream				*stream = NULL;
-	JSClass					*class;
-#if JS_VERSION >= 185
-	JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);
-#endif
+	JSClass					*cls;
+	JSObject				*obj  = JS_THIS_OBJECT(ctx, vp);
+	jsval					*argv = JS_ARGV(ctx,vp);
+	jsval					*rval = &JS_RVAL(ctx,vp);
 
-	intern = (php_jscontext_object*)JS_GetContextPrivate(cx);
-	class = &intern->script_class;
+	intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
+	cls = &intern->script_class;
 
 	if (obj == intern->obj) {
-		class =&intern->global_class;
+		cls =&intern->global_class;
 	}
 
-	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(cx, obj, class, NULL);
+	jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, cls, NULL);
 
 	if (jsref != NULL && jsref->obj != NULL && Z_TYPE_P(jsref->obj) == IS_RESOURCE) {
 		off_t	file_pos;
 
-		/* fetch php_stream */
+		// fetch php_stream
 		php_stream_from_zval_no_verify(stream, &jsref->obj);
-		
+
 		if (stream == NULL) {
-			reportError(cx, "Failed to fetch stream", NULL);
+			reportError(ctx, "Failed to fetch stream", NULL);
+			PHPJS_END(ctx);
 			return JS_FALSE;
 		}
 
 		file_pos = php_stream_tell(stream);
 
 		// read from string
-		JS_NewNumberValue(cx, file_pos, rval);
+		JS_SET_RVAL(ctx, rval, JS_NumberValue(file_pos));
 	}
+
+	PHPJS_END(ctx);
 
 	return JS_TRUE;
 }

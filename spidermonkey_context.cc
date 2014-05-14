@@ -93,16 +93,28 @@ PHP_METHOD(JSContext, registerClass)
 		ce = *pce;
 	}
 
+	JSClass *reClass = (JSClass*)emalloc(sizeof(JSClass));
+	memcpy(reClass, &intern->script_class, sizeof(intern->script_class));
+	if (exported_name != NULL) {
+		zend_hash_add(intern->ec_ht, exported_name, exported_name_len, &ce, sizeof(zend_class_entry**), NULL);
+		reClass->name = exported_name;
+	} else {
+		zend_hash_add(intern->ec_ht, class_name, class_name_len, &ce, sizeof(zend_class_entry**), NULL);
+		reClass->name = class_name;
+	}
+
+	JS_InitClass(intern->ct, intern->obj, nullptr, reClass, generic_constructor, 1, nullptr, nullptr, nullptr, nullptr);
 	/* TODO: error management is needed here, we should throw an exception if the "name" entry
 	 *        already exists */
-	if (exported_name != NULL) {
+	/*if (exported_name != NULL) {
 		zend_hash_add(intern->ec_ht, exported_name, exported_name_len, &ce, sizeof(zend_class_entry**), NULL);
 		JS_DefineFunction(intern->ct, intern->obj, exported_name, generic_constructor, 1, 0);
 	}
 	else {
 		zend_hash_add(intern->ec_ht, class_name, class_name_len, &ce, sizeof(zend_class_entry**), NULL);
-		JS_DefineFunction(intern->ct, intern->obj, class_name, generic_constructor, 1, 0);
-	}
+		//JS_DefineFunction(intern->ct, intern->obj, class_name, generic_constructor, 1, 0);
+		JS_InitClass(intern->ct, intern->obj, nullptr, &intern->script_class, generic_constructor, 1, nullptr, nullptr, nullptr, nullptr);
+	}*/
 
 	PHPJS_END(intern->ct);
 }
@@ -153,10 +165,10 @@ PHP_METHOD(JSContext, evaluateScript)
 	
 	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, script_name, 0, &rval) == JS_TRUE)
 	{
-		if (rval != 0)
+		if (!rval.isNullOrUndefined())
 		{
 			/* The script evaluated fine, convert the return value to PHP */
-			jsval_to_zval(return_value, intern->ct, &rval);
+			jsval_to_zval(return_value, intern->ct, JS::MutableHandleValue::fromMarkedLocation(&rval));
 		}
 		else
 			RETVAL_NULL();
@@ -254,7 +266,7 @@ PHP_METHOD(JSContext, setVersion)
 	}
 
 	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	old_version = JS_SetVersion(intern->ct, version);
+//	old_version = JS_SetVersion(intern->ct, version);
 	
 	if (JS_GetVersion(intern->ct) == version)
 	{
@@ -292,7 +304,7 @@ PHP_METHOD(JSContext, getVersionString)
 		RETURN_NULL();
 	}
 
-	version_str = JS_VersionToString(version);
+	version_str = JS_VersionToString((JSVersion)version);
 	l = strlen(version_str);
 
 	RETVAL_STRINGL(estrndup(version_str, l), l, 0);
