@@ -94,21 +94,6 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 		FREE_HASHTABLE(intern->ec_ht);
 	}
 
-	// we also need to clear up any callback we may have stored
-	if (intern->jsref != NULL)
-	{
-		if (intern->jsref->ht != NULL) {
-			PHPJS_FOREACH(intern->jsref->ht) {
-				php_callback *callback;
-				PHPJS_FOREACH_ENTRY(intern->jsref->ht, callback);
-				zval_ptr_dtor(&callback->fci.function_name);
-			}
-			zend_hash_destroy(intern->jsref->ht);
-			FREE_HASHTABLE(intern->jsref->ht);
-		}
-		efree(intern->jsref);
-	}
-
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
 }
@@ -565,12 +550,12 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 				js_const = INT_TO_JSVAL(SEEK_END);
 				JS_SetProperty(ctx, jobj, "SEEK_END", &js_const);
 				/* set stream functions */
-				/*JS_DefineFunction(ctx, jobj, "read", js_stream_read, 1, 0);
+				JS_DefineFunction(ctx, jobj, "read", js_stream_read, 1, 0);
 				JS_DefineFunction(ctx, jobj, "getline", js_stream_getline, 1, 0);
 				JS_DefineFunction(ctx, jobj, "getl", js_stream_getline, 1, 0);
 				JS_DefineFunction(ctx, jobj, "seek", js_stream_seek, 1, 0);
 				JS_DefineFunction(ctx, jobj, "write", js_stream_write, 1, 0);
-				JS_DefineFunction(ctx, jobj, "tell", js_stream_tell, 1, 0);*/
+				JS_DefineFunction(ctx, jobj, "tell", js_stream_tell, 1, 0);
 			}
 
 			/* store pointer to HashTable */

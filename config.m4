@@ -19,6 +19,6 @@ if test "$PHP_SPIDERMONKEY" != "no"; then
   PHP_ADD_INCLUDE($SPIDERMONKEY_INCLUDE)
   PHP_SUBST(SPIDERMONKEY_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(spidermonkey, spidermonkey.cc spidermonkey_context.cc spidermonkey_external.cc, $ext_shared,,$SPIDERMONKEY_CFLAGS -Wno-write-strings -Wno-invalid-offsetof)
+  PHP_NEW_EXTENSION(spidermonkey, spidermonkey.cc spidermonkey_context.cc spidermonkey_external.cc spidermonkey_streams.cc, $ext_shared,,$SPIDERMONKEY_CFLAGS -Wno-write-strings -Wno-invalid-offsetof)
 fi
 

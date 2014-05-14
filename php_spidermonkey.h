@@ -145,6 +145,11 @@ PHP_METHOD(JSContext, getVersionString);
  */
 JSBool generic_call(JSContext *cx, unsigned argc, JS::Value *vp);
 JSBool generic_constructor(JSContext *cx, unsigned argc, JS::Value *vp);
+JSBool js_stream_read(JSContext *ctx, unsigned argc, JS::Value *vp);
+JSBool js_stream_getline(JSContext *ctx, unsigned argc, JS::Value *vp);
+JSBool js_stream_seek(JSContext *ctx, unsigned argc, JS::Value *vp);
+JSBool js_stream_write(JSContext *ctx, unsigned argc, JS::Value *vp);
+JSBool js_stream_tell(JSContext *ctx, unsigned argc, JS::Value *vp);
 /* }}} */
 
 /* Methods used/exported in JS */
