@@ -148,23 +148,26 @@ JSBool generic_call(JSContext *cx, unsigned argc, jsval *vp)
 JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 {
 	TSRMLS_FETCH();
-	JSFunction				*jclass;
-	JSString				*jclass_name;
-	char					*class_name;
-	zval					***params, *retval_ptr;
-	zend_class_entry		*ce, **pce;
-	zval					*cobj;
-	/*JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);*/
+	JSFunction				*jclass = NULL;
+	JSString				*jclass_name = NULL;
+	char					*class_name = NULL;
 
-	php_jscontext_object	*intern;
-	int						i;
+	zval					***params = NULL,
+							*retval_ptr = NULL,
+							*cobj = NULL;
+
+	zend_class_entry		*ce = NULL,
+							**pce = NULL;
+
+	php_jscontext_object	*intern = NULL;
+
+	int						i = 0;
 
 	JS::CallArgs argv = JS::CallArgsFromVp(argc, vp);
 
 	jclass = JS_ValueToFunction(cx, argv.calleev());
 	jclass_name = JS_GetFunctionId(jclass);
+
 	/* because version 1.8.5 supports unicode, we must encode strings */
 	class_name = JS_EncodeString(cx, jclass_name);
 
@@ -186,8 +189,8 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 
 	if (ce->constructor)
 	{
-		zend_fcall_info			fci;
-		zend_fcall_info_cache	fcc;
+		zend_fcall_info			fci = {0};
+		zend_fcall_info_cache	fcc = {0};
 
 		if (!(ce->constructor->common.fn_flags & ZEND_ACC_PUBLIC)) {
 			zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Access to non-public constructor");
@@ -199,11 +202,9 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 		params = (zval***)emalloc(argc * sizeof(zval**));
 		for (i = 0; i < argc; i++)
 		{
-			zval *val;
-			MAKE_STD_ZVAL(val);
-			jsval_to_zval(val, cx, JS::MutableHandleValue::fromMarkedLocation(&argv[i]));
-			SEPARATE_ARG_IF_REF(val);
-			params[i] = &val;
+			params[i] = (zval**)emalloc(sizeof(zval*));
+			MAKE_STD_ZVAL(*params[i]);
+			jsval_to_zval(*params[i], cx, JS::MutableHandleValue::fromMarkedLocation(&argv[i]));
 		}
 
 		fci.size			= sizeof(fci);
@@ -224,31 +225,24 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 
 		if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE)
 		{
-			/* call ended, clean */
+			/* call ended, clean but don't free (PHP still needs these objects). */
 			for (i = 0; i < argc; i++)
 			{
-				zval *eval;
-				eval = *params[i];
-				zval_ptr_dtor(&eval);
-				efree(eval);
+				zval_ptr_dtor(params[i]);
 			}
 			if (retval_ptr) {
 				zval_ptr_dtor(&retval_ptr);
 			}
-			efree(params);
 			zval_ptr_dtor(&cobj);
-			/* TODO: failed */
+			// /* TODO: failed */
 			argv.rval().setNull();
 			return JS_FALSE;
 		}
 
-		/* call ended, clean */
+		/* call ended, clean but don't free (PHP still needs these objects). */
 		for (i = 0; i < argc; i++)
 		{
-			zval *eval;
-			eval = *params[i];
-			zval_ptr_dtor(&eval);
-			efree(eval);
+			zval_ptr_dtor(params[i]);
 		}
 
 		if (retval_ptr)
@@ -257,8 +251,6 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 		}
 
 		zval_to_jsval(cobj, cx, argv.rval().address() TSRMLS_CC);
-	
-		efree(params);
 	}
 	else
 	{
