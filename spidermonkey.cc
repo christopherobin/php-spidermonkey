@@ -84,7 +84,10 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 	// if a context is found ( which should be the case )
 	// destroy it
 	if (intern->ct != (JSContext*)NULL) {
+		PHPJS_START(intern->ct);
 		JS_LeaveCompartment(intern->ct, intern->cpt);
+		PHPJS_END(intern->ct);
+
 		JS_DestroyContext(intern->ct);
 	}
 
@@ -167,8 +170,8 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* create global object for execution */
 	intern->obj = JS_NewGlobalObject(intern->ct, &intern->global_class, nullptr);
 
-	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
 	JS_SetGlobalObject(intern->ct, intern->obj);
+	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
 
 	/* initialize standard JS classes */
 	JS_InitStandardClasses(intern->ct, intern->obj);

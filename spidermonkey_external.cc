@@ -205,6 +205,7 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 			params[i] = (zval**)emalloc(sizeof(zval*));
 			MAKE_STD_ZVAL(*params[i]);
 			jsval_to_zval(*params[i], cx, JS::MutableHandleValue::fromMarkedLocation(&argv[i]));
+			Z_UNSET_ISREF_PP(params[i]);
 		}
 
 		fci.size			= sizeof(fci);
@@ -229,6 +230,7 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 			for (i = 0; i < argc; i++)
 			{
 				zval_ptr_dtor(params[i]);
+				efree(params[i]);
 			}
 			if (retval_ptr) {
 				zval_ptr_dtor(&retval_ptr);
@@ -243,6 +245,7 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 		for (i = 0; i < argc; i++)
 		{
 			zval_ptr_dtor(params[i]);
+			efree(params[i]);
 		}
 
 		if (retval_ptr)
@@ -251,6 +254,7 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 		}
 
 		zval_to_jsval(cobj, cx, argv.rval().address() TSRMLS_CC);
+		efree(params);
 	}
 	else
 	{
