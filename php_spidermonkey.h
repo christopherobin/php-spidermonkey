@@ -99,6 +99,7 @@ typedef struct _php_jscontext_object  {
 	JSClass					global_class;
 	JSClass					script_class;
 	JSObject				*obj;
+	// JS::RootedObject	    obj;
 	JSCompartment			*cpt;
 } php_jscontext_object;
 
