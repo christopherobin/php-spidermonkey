@@ -41,7 +41,7 @@ void reportError(JSContext *cx, const char *message, JSErrorReport *report)
 void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_name, zval *val TSRMLS_DC)
 {
 	jsval jval;
-	
+
 	PHPJS_START(ctx);
 
 	/* first convert zval to jsval */
@@ -49,7 +49,7 @@ void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_nam
 
 	/* no ref behavior, just set a property */
 	JSBool res = JS_SetProperty(ctx, obj, property_name, &jval);
-	
+
 	PHPJS_END(ctx);
 }
 
@@ -57,19 +57,23 @@ void php_jsobject_set_property(JSContext *ctx, JSObject *obj, char *property_nam
 JSBool generic_call(JSContext *cx, unsigned argc, jsval *vp)
 {
 	TSRMLS_FETCH();
-	JSFunction				*func;
-	JSString				*jfunc_name;
-	JSClass					*jclass;
-	char					*func_name;
-	zval					***params, *retval_ptr = NULL;
+	JSFunction				*func = NULL;
+	JSString				*jfunc_name = NULL;
+	JSClass					*jclass = NULL;
+	char					*func_name = NULL;
+
+	zval					***params = NULL,
+							*retval_ptr = NULL;
+
 	php_callback			*callback;
+
 	php_jscontext_object	*intern;
+
 	php_jsobject_ref		*jsref;
-	int						i;
+
+	int						i = 0;
+
 	JSObject				*obj;
-	/*JSObject				*obj  = JS_THIS_OBJECT(cx, vp);
-	jsval					*argv = JS_ARGV(cx,vp);
-	jsval					*rval = &JS_RVAL(cx,vp);*/
 
 	/* first retrieve function name */
 	JS::CallArgs argv = JS::CallArgsFromVp(argc, vp);
@@ -90,7 +94,7 @@ JSBool generic_call(JSContext *cx, unsigned argc, jsval *vp)
 	if (obj == intern->obj) {
 		jclass =&intern->global_class;
 	}
-	
+
 	if ((jsref = (php_jsobject_ref*)JS_GetPrivate(obj)) == nullptr)
 	{
 		zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Failed to retrieve function table", 0 TSRMLS_CC);
@@ -138,7 +142,7 @@ JSBool generic_call(JSContext *cx, unsigned argc, jsval *vp)
 	{
 		argv.rval().get().setNull();
 	}
-	
+
 	efree(params);
 
 	return JS_TRUE;
@@ -226,7 +230,7 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 
 		if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE)
 		{
-			/* call ended, clean but don't free (PHP still needs these objects). */
+			/* call ended, clean. */
 			for (i = 0; i < argc; i++)
 			{
 				zval_ptr_dtor(params[i]);
@@ -241,7 +245,7 @@ JSBool generic_constructor(JSContext *cx, unsigned argc, jsval *vp)
 			return JS_FALSE;
 		}
 
-		/* call ended, clean but don't free (PHP still needs these objects). */
+		/* call ended, clean. */
 		for (i = 0; i < argc; i++)
 		{
 			zval_ptr_dtor(params[i]);
