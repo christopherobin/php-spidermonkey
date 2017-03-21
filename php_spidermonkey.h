@@ -44,7 +44,7 @@ extern "C" {
 #define XP_UNIX
 #include "jsapi.h"
 
-#define PHP_JSRUNTIME_GC_MEMORY_THRESHOLD   "8388608"
+#define PHP_JSRUNTIME_GC_MEMORY_THRESHOLD   "838860800"
 
 #define PHP_SPIDERMONKEY_JSC_NAME			"JSContext"
 #define PHP_JSCONTEXT_DESCRIPTOR_RES_NAME   "Javascript Context"
@@ -99,6 +99,7 @@ typedef struct _php_jscontext_object  {
 	JSClass					global_class;
 	JSClass					script_class;
 	JSObject				*obj;
+	// JS::RootedObject	    obj;
 	JSCompartment			*cpt;
 } php_jscontext_object;
 

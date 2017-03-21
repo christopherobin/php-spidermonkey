@@ -84,7 +84,10 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 	// if a context is found ( which should be the case )
 	// destroy it
 	if (intern->ct != (JSContext*)NULL) {
+		PHPJS_START(intern->ct);
 		JS_LeaveCompartment(intern->ct, intern->cpt);
+		PHPJS_END(intern->ct);
+
 		JS_DestroyContext(intern->ct);
 	}
 
@@ -94,9 +97,40 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 		FREE_HASHTABLE(intern->ec_ht);
 	}
 
+	if (intern->jsref != NULL && intern->jsref->ht != NULL)
+	{
+		zend_hash_destroy(intern->jsref->ht);
+		FREE_HASHTABLE(intern->jsref->ht);
+		efree(intern->jsref);
+	}
+
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
 }
+
+static JSClass phpjs_global_class = {
+    "PHPGlobalClass",
+	JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE,
+    JS_PropertyStub,
+    JS_DeletePropertyStub,
+    JS_PropertyStub,
+    JS_StrictPropertyStub,
+    JS_EnumerateStub,
+    JS_ResolveStub,
+    JS_ConvertStub,
+};
+
+static JSClass phpjs_php_class = {
+    "PHPClass",
+	JSCLASS_HAS_PRIVATE,
+    JS_PropertyStub,
+    JS_DeletePropertyStub,
+    JS_PropertyStub,
+    JS_StrictPropertyStub,
+    JS_EnumerateStub,
+    JS_ResolveStub,
+    JS_ConvertStub,
+};
 
 static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_type, php_jscontext_object **ptr TSRMLS_DC)
 {
@@ -125,6 +159,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* prepare hashtable for callback storage */
 	intern->jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
+
 	/* create callback hashtable */
 	ALLOC_HASHTABLE(intern->jsref->ht);
 	zend_hash_init(intern->jsref->ht, 50, NULL, NULL, 0);
@@ -136,30 +171,13 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	PHPJS_START(intern->ct);
 	JS_SetContextPrivate(intern->ct, intern);
 
-	memset(&intern->script_class, 0, sizeof(intern->script_class));
-
-	/* The script_class is a global object used by PHP to allow function register */
-	intern->script_class.name			= "PHPClass";
-	intern->script_class.flags			= JSCLASS_HAS_PRIVATE;
-
-	/* Mandatory non-null function pointer members. */
-	intern->script_class.addProperty	= JS_PropertyStub;
-	intern->script_class.delProperty	= JS_DeletePropertyStub;
-	intern->script_class.getProperty	= JS_PropertyGetterPHP;
-	intern->script_class.setProperty	= JS_PropertySetterPHP;
-	intern->script_class.resolve		= JS_ResolvePHP;
-	intern->script_class.finalize		= JS_FinalizePHP;
-	intern->script_class.enumerate		= JS_EnumerateStub;
-	intern->script_class.convert		= JS_ConvertStub;
-
-	memcpy(&intern->global_class, &intern->script_class, sizeof(intern->script_class));
-	intern->global_class.name			= "PHPGlobalClass";
-	intern->global_class.flags			= JSCLASS_GLOBAL_FLAGS | JSCLASS_HAS_PRIVATE;
+	intern->script_class = phpjs_php_class;
+	intern->global_class = phpjs_global_class;
 
 	JSAutoRequest ar(intern->ct);
 
 	/* says that our script runs in global scope */
-	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX | JSOPTION_ASMJS);
+	JS_SetOptions(intern->ct, JS_GetOptions(intern->ct) | JSOPTION_VAROBJFIX | JSOPTION_UNROOTED_GLOBAL);
 
 	/* set the error callback */
 	JS_SetErrorReporter(intern->ct, reportError);
@@ -167,8 +185,8 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	/* create global object for execution */
 	intern->obj = JS_NewGlobalObject(intern->ct, &intern->global_class, nullptr);
 
-	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
 	JS_SetGlobalObject(intern->ct, intern->obj);
+	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
 
 	/* initialize standard JS classes */
 	JS_InitStandardClasses(intern->ct, intern->obj);
@@ -635,7 +653,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			/* create JSObject */
 			jobj = JS_NewArrayObject(ctx, 0, nullptr);
 
-			// prevent GC
+			// prevent GC while constructing the array.
 			JS_AddObjectRoot(ctx, &jobj);
 
 			/* foreach item */
@@ -646,7 +664,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 				ulong idx;
 				int type;
 				zval **ppzval;
-				char intIdx[25];
+				ulong intIdx;
 
 				/* retrieve current key */
 				type = zend_hash_get_current_key_ex(ht, &key, &keylen, &idx, 0, NULL);
@@ -678,6 +696,8 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			}
 
 			*jval = OBJECT_TO_JSVAL(jobj);
+
+			JS_RemoveObjectRoot(ctx, &jobj);
 			break;
 		case IS_NULL:
 			*jval = JSVAL_NULL;
