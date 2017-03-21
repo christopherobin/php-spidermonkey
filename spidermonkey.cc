@@ -97,6 +97,13 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 		FREE_HASHTABLE(intern->ec_ht);
 	}
 
+	if (intern->jsref != NULL && intern->jsref->ht != NULL)
+	{
+		zend_hash_destroy(intern->jsref->ht);
+		FREE_HASHTABLE(intern->jsref->ht);
+		efree(intern->jsref);
+	}
+
 	zend_object_std_dtor(&intern->zo TSRMLS_CC);
 	efree(object);
 }
@@ -152,6 +159,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 
 	/* prepare hashtable for callback storage */
 	intern->jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
+
 	/* create callback hashtable */
 	ALLOC_HASHTABLE(intern->jsref->ht);
 	zend_hash_init(intern->jsref->ht, 50, NULL, NULL, 0);
@@ -645,7 +653,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			/* create JSObject */
 			jobj = JS_NewArrayObject(ctx, 0, nullptr);
 
-			// prevent GC
+			// prevent GC while constructing the array.
 			JS_AddObjectRoot(ctx, &jobj);
 
 			/* foreach item */
@@ -656,7 +664,7 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 				ulong idx;
 				int type;
 				zval **ppzval;
-				char intIdx[25];
+				ulong intIdx;
 
 				/* retrieve current key */
 				type = zend_hash_get_current_key_ex(ht, &key, &keylen, &idx, 0, NULL);
@@ -688,6 +696,8 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			}
 
 			*jval = OBJECT_TO_JSVAL(jobj);
+
+			JS_RemoveObjectRoot(ctx, &jobj);
 			break;
 		case IS_NULL:
 			*jval = JSVAL_NULL;
