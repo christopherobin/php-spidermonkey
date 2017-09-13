@@ -27,35 +27,42 @@
  */
 zend_class_entry *php_spidermonkey_jsc_entry;
 
+// todo: might use zend_closure to fix closure error on test cases.
+// https://github.com/php/php-src/blob/1189fe572944932b4d517aa8039596fb1892d5b7/Zend/zend_closures.c
+/*
+PHP_METHOD(JSContext, registerClosure)
+{
+}
+*/
+
 /* {{{ proto public bool JSContext::registerFunction(string name, callback function)
    Register a PHP function in a Javascript context allowing a script to call it*/
 PHP_METHOD(JSContext, registerFunction)
 {
-	char					*name = NULL;
-	int						name_len = 0;
-	php_callback			callback;
+	zend_string				*name = NULL;
+	php_callback			*callback;
 	php_jscontext_object	*intern;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "f|s", &callback.fci, &callback.fci_cache, &name, &name_len) == FAILURE) {
+	// efree(callback) on JS_FinalizePHP
+	callback = (php_callback*)ecalloc(1, sizeof(php_callback));
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "f|S", &callback->fci, &callback->fci_cache, &name) == FAILURE) {
 		RETURN_NULL();
 	}
 
 	/* retrieve this class from the store */
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 	
 	PHPJS_START(intern->ct);
-
-	Z_ADDREF_P(callback.fci.function_name);
 
 	/* TODO: error management is needed here, we should throw an exception if the "name" entry
 	 *        already exists */
 	if (name == NULL) {
-		name		= Z_STRVAL_P(callback.fci.function_name);
-		name_len	= Z_STRLEN_P(callback.fci.function_name);
+		name = Z_STR(callback->fci.function_name);
 	}
 
-	zend_hash_add(intern->jsref->ht, name, name_len, &callback, sizeof(callback), NULL);
-	JS_DefineFunction(intern->ct, intern->obj, name, generic_call, 1, 0);
+	zend_hash_add_new_ptr(intern->jsref->ht, name, callback);
+	JS_DefineFunction(intern->ct, intern->obj, ZSTR_VAL(name), generic_call, 1, 0);
 	
 	PHPJS_END(intern->ct);
 }
@@ -65,45 +72,43 @@ PHP_METHOD(JSContext, registerFunction)
    Register a PHP function in a Javascript context allowing a script to call it*/
 PHP_METHOD(JSContext, registerClass)
 {
-	char					*class_name = NULL;
-	int						class_name_len = 0;
-	char					*exported_name = NULL;
-	int						exported_name_len = 0;
+	zend_string				*class_name = NULL;
+	zend_string				*exported_name = NULL;
 	php_jscontext_object	*intern;
 	zend_class_entry		*ce = NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &class_name, &class_name_len, &exported_name, &exported_name_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S|S", &class_name, &exported_name) == FAILURE) {
 		RETURN_NULL();
 	}
 
 	/* retrieve this class from the store */
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 	
 	PHPJS_START(intern->ct);
 
-	if (class_name_len) {
-		zend_class_entry **pce;
-		if (zend_lookup_class(class_name, class_name_len, &pce TSRMLS_CC) == FAILURE) {
-			if (!EG(exception)) {
-				PHPJS_END(intern->ct);
-				zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0 TSRMLS_CC, "Class %s doesn't exists !", class_name);
-				return;
-			}
+	if (ZSTR_LEN(class_name)) {
+		ce = zend_lookup_class(class_name);
+		if (ce == NULL) {
+			PHPJS_END(intern->ct);
+			zend_throw_exception_ex(zend_exception_get_default(TSRMLS_C), 0, "Class %s doesn't exists !", ZSTR_VAL(class_name));
+			return;
 		}
-		ce = *pce;
 	}
 
 	JSClass *reClass = (JSClass*)emalloc(sizeof(JSClass));
 	memcpy(reClass, &intern->script_class, sizeof(intern->script_class));
 	if (exported_name != NULL) {
-		zend_hash_add(intern->ec_ht, exported_name, exported_name_len, &ce, sizeof(zend_class_entry**), NULL);
-		reClass->name = exported_name;
+		zend_hash_add_new_ptr(intern->ec_ht, exported_name, ce);
+		reClass->name = ZSTR_VAL(exported_name);
 	} else {
-		zend_hash_add(intern->ec_ht, class_name, class_name_len, &ce, sizeof(zend_class_entry**), NULL);
-		reClass->name = class_name;
+		zend_hash_add_new_ptr(intern->ec_ht, class_name, ce);
+		reClass->name = ZSTR_VAL(class_name);
 	}
 
 	JS_InitClass(intern->ct, intern->obj, nullptr, reClass, generic_constructor, 1, nullptr, nullptr, nullptr, nullptr);
+
+	efree(reClass);
+	
 	/* TODO: error management is needed here, we should throw an exception if the "name" entry
 	 *        already exists */
 	/*if (exported_name != NULL) {
@@ -125,18 +130,17 @@ PHP_METHOD(JSContext, registerClass)
    Register a value in Javascript's global scope*/
 PHP_METHOD(JSContext, assign)
 {
-	char					*name;
-	int						name_len;
-	zval					*val = NULL;
+	zend_string				*name;
+	zval					*val;
 	php_jscontext_object	*intern;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &name, &name_len, &val) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sz", &name, &val) == FAILURE) {
 		RETURN_NULL();
 	}
 
 	/* retrieve this class from the store */
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
-	php_jsobject_set_property(intern->ct, intern->obj, name, val TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
+	php_jsobject_set_property(intern->ct, intern->obj, ZSTR_VAL(name), val);
 }
 /* }}} */
 
@@ -147,23 +151,21 @@ PHP_METHOD(JSContext, assign)
    in any JSObject in  the same context. */
 PHP_METHOD(JSContext, evaluateScript)
 {
-	char *script;
-	char *script_name = NULL;
-	int script_len, script_name_len = 0;
+	zend_string *script;
+	
 	php_jscontext_object *intern;
 	jsval rval;
 
 	/* retrieve script */
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						"s|s", &script, &script_len, &script_name, &script_name_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "S", &script) == FAILURE) {
 		RETURN_FALSE;
 	}
 
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 	
 	PHPJS_START(intern->ct);
-	
-	if (JS_EvaluateScript(intern->ct, intern->obj, script, script_len, script_name, 0, &rval) == JS_TRUE)
+
+	if (JS_EvaluateScript(intern->ct, intern->obj, ZSTR_VAL(script), ZSTR_LEN(script), "evaluateScript", 0, &rval) == JS_TRUE)
 	{
 		if (!rval.isNullOrUndefined())
 		{
@@ -192,12 +194,11 @@ PHP_METHOD(JSContext, setOptions)
 	long					options;
 	long					old_options;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						 "l", &options) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &options) == FAILURE) {
 		RETURN_NULL();
 	}
 
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 	old_options = JS_SetOptions(intern->ct, options);
 	
 	if (JS_GetOptions(intern->ct) == options)
@@ -220,12 +221,11 @@ PHP_METHOD(JSContext, toggleOptions)
 	long					options;
 	long					old_options;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						 "l", &options) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &options) == FAILURE) {
 		RETURN_NULL();
 	}
 
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 	old_options = JS_ToggleOptions(intern->ct, options);
 	
 	if (JS_GetOptions(intern->ct) == (old_options ^ options))
@@ -245,7 +245,7 @@ PHP_METHOD(JSContext, getOptions)
 {
 	php_jscontext_object	*intern;
 
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 
 	RETVAL_LONG(JS_GetOptions(intern->ct));
 }
@@ -260,12 +260,11 @@ PHP_METHOD(JSContext, setVersion)
 	long					version;
 	long					old_version;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						 "l", &version) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &version) == FAILURE) {
 		RETURN_NULL();
 	}
 
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 //	old_version = JS_SetVersion(intern->ct, version);
 	
 	if (JS_GetVersion(intern->ct) == version)
@@ -285,7 +284,7 @@ PHP_METHOD(JSContext, getVersion)
 {
 	php_jscontext_object	*intern;
 
-	intern = (php_jscontext_object *) zend_object_store_get_object(getThis() TSRMLS_CC);
+	intern = (php_jscontext_object *) Z_OBJ_P(getThis());
 
 	RETVAL_LONG(JS_GetVersion(intern->ct));
 }
@@ -296,18 +295,14 @@ PHP_METHOD(JSContext, getVersion)
 PHP_METHOD(JSContext, getVersionString)
 {
 	const char *version_str;
-	int l;
-	long version;
+	zend_long version;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-						 "l", &version) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &version) == FAILURE) {
 		RETURN_NULL();
 	}
 
 	version_str = JS_VersionToString((JSVersion)version);
-	l = strlen(version_str);
-
-	RETVAL_STRINGL(estrndup(version_str, l), l, 0);
+	RETVAL_STRINGL(version_str, strlen(version_str));
 }
 /* }}} */
 

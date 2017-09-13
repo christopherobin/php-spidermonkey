@@ -61,7 +61,7 @@ JSBool js_stream_read(JSContext *ctx, unsigned argc, JS::Value *vp)
 		}
 
 		/* fetch php_stream */
-		php_stream_from_zval_no_verify(stream, &jsref->obj);
+		php_stream_from_zval_no_verify(stream, jsref->obj);
 
 		if (stream == NULL) {
 			reportError(ctx, "Failed to read stream", NULL);
@@ -128,7 +128,7 @@ JSBool js_stream_getline(JSContext *ctx, unsigned argc, JS::Value *vp)
 			buf_len = 4096;
 		}
 		// fetch php_stream
-		php_stream_from_zval_no_verify(stream, &jsref->obj);
+		php_stream_from_zval_no_verify(stream, jsref->obj);
 
 		if (stream == NULL) {
 			reportError(ctx, "Failed to read stream", NULL);
@@ -187,7 +187,7 @@ JSBool js_stream_seek(JSContext *ctx, unsigned argc, JS::Value *vp)
 		int		whence;
 
 		// fetch php_stream
-		php_stream_from_zval_no_verify(stream, &jsref->obj);
+		php_stream_from_zval_no_verify(stream, jsref->obj);
 
 		if (stream == NULL) {
 			reportError(ctx, "Failed to access stream", NULL);
@@ -244,7 +244,7 @@ JSBool js_stream_write(JSContext *ctx, unsigned argc, JS::Value *vp)
 		size_t		buf_len, nbytes;
 
 		// fetch php_stream
-		php_stream_from_zval_no_verify(stream, &jsref->obj);
+		php_stream_from_zval_no_verify(stream, jsref->obj);
 
 		if (stream == NULL) {
 			reportError(ctx, "Failed to write to stream", NULL);
@@ -310,7 +310,7 @@ JSBool js_stream_tell(JSContext *ctx, unsigned argc, JS::Value *vp)
 		off_t	file_pos;
 
 		// fetch php_stream
-		php_stream_from_zval_no_verify(stream, &jsref->obj);
+		php_stream_from_zval_no_verify(stream, jsref->obj);
 
 		if (stream == NULL) {
 			reportError(ctx, "Failed to fetch stream", NULL);

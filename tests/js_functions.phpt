@@ -13,11 +13,13 @@ class C {
 	}
 }
 
+function cl() { echo "bar\n"; }
+
 $js = new JSContext();
 $js->registerFunction('printf');
 $js->registerFunction('a', 'b');
 $js->registerFunction(array(new C(), 'F') , 'CF');
-$js->registerFunction(function() { echo "bar\n"; } , 'closure');
+$js->registerFunction('cl' , 'closure');
 
 $script = <<<SCR
 printf("%s %d ", "blah", 42)
