@@ -77,9 +77,13 @@ zend_function_entry php_spidermonkey_jsc_functions[] = {
 
 static zend_object_handlers jscontext_object_handlers;
 
-static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
+static inline php_jscontext_object* php_jscontext_fetch_object(zend_object *obj) {
+    return (php_jscontext_object *)((char *)obj - XtOffsetOf(php_jscontext_object, zo));
+}
+
+static void php_jscontext_object_free_storage(zend_object *object)
 {
-	php_jscontext_object *intern = (php_jscontext_object *)object;
+	php_jscontext_object *intern = php_jscontext_fetch_object(object);
 
 	// if a context is found ( which should be the case )
 	// destroy it
@@ -94,24 +98,15 @@ static void php_jscontext_object_free_storage(void *object TSRMLS_DC)
 		FREE_HASHTABLE(intern->ec_ht);
 	}
 
-	zend_object_std_dtor(&intern->zo TSRMLS_CC);
-	efree(object);
+	zend_object_std_dtor(&intern->zo);
 }
 
-static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_type, php_jscontext_object **ptr TSRMLS_DC)
+static zend_object* php_jscontext_object_new(zend_class_entry *ce)
 {
-	zval *tmp;
-	zend_object_value retval;
 	php_jscontext_object *intern;
 
 	/* Allocate memory for it */
-	intern = (php_jscontext_object *) emalloc(sizeof(php_jscontext_object));
-	memset(intern, 0, sizeof(php_jscontext_object));
-
-	if (ptr)
-	{
-		*ptr = intern;
-	}
+	intern = (php_jscontext_object *) ecalloc(1, sizeof(php_jscontext_object) + zend_object_properties_size(ce));
 
 	/* if no runtime is found create one */
 	if (SPIDERMONKEY_G(rt) == NULL)
@@ -124,7 +119,7 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	zend_hash_init(intern->ec_ht, 20, NULL, NULL, 0);
 
 	/* prepare hashtable for callback storage */
-	intern->jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
+	intern->jsref = (php_jsobject_ref*)ecalloc(1, sizeof(php_jsobject_ref));
 	/* create callback hashtable */
 	ALLOC_HASHTABLE(intern->jsref->ht);
 	zend_hash_init(intern->jsref->ht, 50, NULL, NULL, 0);
@@ -159,16 +154,16 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	JSAutoRequest ar(intern->ct);
 
 	/* says that our script runs in global scope */
-	JS_SetOptions(intern->ct, JSOPTION_VAROBJFIX | JSOPTION_ASMJS);
-
+	JS_SetOptions(intern->ct, JS_GetOptions(intern->ct) | JSOPTION_VAROBJFIX | JSOPTION_ASMJS);
+	
 	/* set the error callback */
 	JS_SetErrorReporter(intern->ct, reportError);
 
 	/* create global object for execution */
 	intern->obj = JS_NewGlobalObject(intern->ct, &intern->global_class, nullptr);
 
-	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
 	JS_SetGlobalObject(intern->ct, intern->obj);
+	intern->cpt = JS_EnterCompartment(intern->ct, intern->obj);
 
 	/* initialize standard JS classes */
 	JS_InitStandardClasses(intern->ct, intern->obj);
@@ -177,17 +172,24 @@ static zend_object_value php_jscontext_object_new_ex(zend_class_entry *class_typ
 	JS_SetPrivate(intern->obj, intern->jsref);
 
 	/* create zend object */
-	zend_object_std_init(&intern->zo, class_type TSRMLS_CC);
+	zend_object_std_init(&intern->zo, ce);
+	object_properties_init(&intern->zo, ce);
 
-	retval.handle = zend_objects_store_put(intern, NULL, (zend_objects_free_object_storage_t) php_jscontext_object_free_storage, NULL TSRMLS_CC);
-	retval.handlers = (zend_object_handlers *) &jscontext_object_handlers;
+	intern->zo.handlers = &jscontext_object_handlers;
+
 	PHPJS_END(intern->ct);
-	return retval;
+	return &intern->zo;
 }
 
-static zend_object_value php_jscontext_object_new(zend_class_entry *class_type TSRMLS_DC)
+static HashTable * get_gc(zval *object, zval **gc_data, int *gc_count)/*{{{*/
 {
-	return php_jscontext_object_new_ex(class_type, NULL TSRMLS_CC);
+	*gc_data = NULL;
+	*gc_count = 0;
+	return zend_std_get_properties(object);
+}
+	
+static void php_spidermonkey_init_globals(zend_spidermonkey_globals *hello_globals)
+{
 }
 
 /**
@@ -218,23 +220,25 @@ PHP_MINIT_FUNCTION(spidermonkey)
 	REGISTER_LONG_CONSTANT("JSVERSION_DEFAULT", JSVERSION_DEFAULT,  CONST_CS | CONST_PERSISTENT);
 
 	// CLASS INIT
-#ifdef ZTS
-	//ts_allocate_id(&spidermonkey_globals_id, sizeof(spidermonkey_globals), NULL, NULL);
-	ZEND_INIT_MODULE_GLOBALS(spidermonkey, NULL, NULL);
-#endif
+	ZEND_DECLARE_MODULE_GLOBALS(spidermonkey);
+	ZEND_INIT_MODULE_GLOBALS(spidermonkey, php_spidermonkey_init_globals, NULL);
 
 	SPIDERMONKEY_G(rt) = NULL;
 
 	// here we set handlers to zero, meaning that we have no handlers set
 	memcpy(&jscontext_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+	jscontext_object_handlers.offset = XtOffsetOf(php_jscontext_object, zo);
+	jscontext_object_handlers.get_gc = get_gc;
+	jscontext_object_handlers.clone_obj = NULL;
+	jscontext_object_handlers.free_obj = php_jscontext_object_free_storage;
 
 	// init JSContext class
 	INIT_CLASS_ENTRY(ce, PHP_SPIDERMONKEY_JSC_NAME, php_spidermonkey_jsc_functions);
 	// this function will be called when the object is created by php
 	ce.create_object = php_jscontext_object_new;
 	// register class in PHP
-	php_spidermonkey_jsc_entry = zend_register_internal_class(&ce TSRMLS_CC);
-
+	php_spidermonkey_jsc_entry = zend_register_internal_class(&ce);
+	
 	return SUCCESS;
 }
 
@@ -269,12 +273,12 @@ PHP_MINFO_FUNCTION(spidermonkey)
 PHP_INI_MH(spidermonkey_ini_update) {
 	// if the runtime is already here, emit a warning
 	if (SPIDERMONKEY_G(rt) != NULL) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "JS runtime is already started, update of spidermonkey.gc_mem_threshold ignored.");
+		php_error_docref(NULL, E_WARNING, "JS runtime is already started, update of spidermonkey.gc_mem_threshold ignored.");
 	}
 }
 
 /*  convert a given jsval in a context to a zval, for PHP access */
-void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Value> rval, php_jsparent *parent TSRMLS_DC)
+void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Value> rval, php_jsparent *parent)
 {
 	PHPJS_START(ctx);
 
@@ -303,7 +307,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 			if ((len = JS_GetStringLength(str)) > 0) {
 				/* then we retrieve the pointer to the string */
 				char *txt = JS_EncodeString(ctx, str);
-				RETVAL_STRINGL(txt, strlen(txt), 1);
+				RETVAL_STRINGL(txt, strlen(txt));
 				JS_free(ctx, txt);
 			}
 			else
@@ -347,7 +351,7 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 		/* your shouldn't be able to reference the global object */
 		if (obj == JS_GetGlobalForScopeChain(ctx)) {
 			PHPJS_END(ctx);
-			zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Trying to reference global object", 0 TSRMLS_CC);
+			zend_throw_exception(zend_exception_get_default(TSRMLS_C), "Trying to reference global object", 0);
 			return;
 		}
 
@@ -363,14 +367,11 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 						jsval value;
 
 						if (JS_LookupElement(ctx, obj, i, &value) == JS_TRUE) {
-							zval *fval;
-
-							/* alloc memory for this zval */
-							MAKE_STD_ZVAL(fval);
+							zval fval;
 							/* Call this function to convert a jsval to a zval */
-							jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&value));
+							jsval_to_zval(&fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&value));
 							/* Add property to our array */
-							add_index_zval(return_value, i, fval);
+							add_index_zval(return_value, i, &fval);
 						}
 					}
 				}
@@ -402,20 +403,17 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 					/* Try to read property */
 					if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
 					{
-						zval *fval;
-
-						/* alloc memory for this zval */
-						MAKE_STD_ZVAL(fval);
+						zval fval;
 						/* Call this function to convert a jsval to a zval */
-						jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&item_val));
+						jsval_to_zval(&fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&item_val));
 						/* Add property to our stdClass */
-						add_assoc_zval(return_value, name, fval);
+						add_assoc_zval(return_value, name, &fval);
 					}
 					JS_free(ctx, name);
 				}
 			}
 		} else {
-			if ((jsref = (php_jsobject_ref*)JS_GetPrivate(obj)) == NULL || jsref->obj == NULL)
+			if ((jsref = (php_jsobject_ref*)JS_GetInstancePrivate(ctx, obj, &intern->script_class, NULL)) == NULL || jsref->obj == NULL)
 			{
 				zobj = NULL;
 				while (parent != NULL) {
@@ -461,20 +459,19 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 							/* Try to read property */
 							if (JS_GetProperty(ctx, obj, name, &item_val) == JS_TRUE)
 							{
-								zval *fval;
+								zval fval;
 
-								/* alloc memory for this zval */
-								MAKE_STD_ZVAL(fval);
 								/* Call this function to convert a jsval to a zval */
-								_jsval_to_zval(fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&item_val), &jsthis TSRMLS_CC);
+								_jsval_to_zval(&fval, ctx, JS::MutableHandleValue::fromMarkedLocation(&item_val), &jsthis);
 								/* Add property to our stdClass */
-								zend_update_property(NULL, return_value, name, strlen(name), fval TSRMLS_CC);
-								/* Destroy pointer to zval */
-								zval_ptr_dtor(&fval);
+								zend_update_property(NULL, return_value, name, strlen(name), &fval);
+											
+								zval_dtor(&fval);
 							}
 							JS_free(ctx, name);
 						}
 					}
+
 				} else {
 					RETVAL_ZVAL(zobj, 1, NULL);
 				}
@@ -492,16 +489,14 @@ void _jsval_to_zval(zval *return_value, JSContext *ctx, JS::MutableHandle<JS::Va
 }
 
 /* convert a given jsval in a context to a zval, for PHP access */
-void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
+void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval)
 {
 	JSString				*jstr;
 	JSObject				*jobj;
-	HashTable				*ht;
 	zend_class_entry		*ce = NULL;
-	zend_function			*fptr;
 	php_jscontext_object	*intern;
 	php_jsobject_ref		*jsref;
-	php_stream				*stream;
+	php_stream				*stream = NULL;
 
 	PHPJS_START(ctx);
 
@@ -523,22 +518,26 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			jstr = JS_NewStringCopyN(ctx, Z_STRVAL_P(val), Z_STRLEN_P(val));
 			jval->setString(jstr);
 			break;
-		case IS_BOOL:
-			*jval = BOOLEAN_TO_JSVAL(Z_BVAL_P(val));
+		case IS_TRUE:
+			*jval = BOOLEAN_TO_JSVAL(1);
 			break;
-		case IS_RESOURCE:
+		case IS_FALSE:
+			*jval = BOOLEAN_TO_JSVAL(0);
+			break;
+		case IS_RESOURCE: {
+			
 			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 			/* create JSObject */
 			jobj = JS_NewObject(ctx, &intern->script_class, NULL, NULL);
 
 			jsref = (php_jsobject_ref*)emalloc(sizeof(php_jsobject_ref));
 			/* store pointer to object */
-			SEPARATE_ARG_IF_REF(val);
+			// todo: is this necessary? this causes zend_object memory leak.
+			// SEPARATE_ARG_IF_REF(val);
 			jsref->ht = NULL;
 			jsref->obj = val;
 			/* auto define functions for stream */
-			php_stream *stream;
-			php_stream_from_zval_no_verify(stream, &val);
+			php_stream_from_zval_no_verify(stream, val);
 
 			if (stream != NULL) {
 				/* set a bunch of constants */
@@ -563,7 +562,10 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 			*jval = OBJECT_TO_JSVAL(jobj);
 			break;
-		case IS_OBJECT:
+
+		}
+		case IS_OBJECT: {
+
 			intern = (php_jscontext_object*)JS_GetContextPrivate(ctx);
 			/* create JSObject */
 			jobj = JS_NewObject(ctx, &intern->script_class, NULL, NULL);
@@ -573,7 +575,9 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			ALLOC_HASHTABLE(jsref->ht);
 			zend_hash_init(jsref->ht, 50, NULL, NULL, 0);
 
-			SEPARATE_ARG_IF_REF(val);
+			// todo: is this necessary? this causes zend_object memory leak.
+			// on FinalizePHP callback, ref count of val had changed to weird number.
+			//SEPARATE_ARG_IF_REF(val);
 
 			/* store pointer to object */
 			jsref->obj = val;
@@ -582,55 +586,50 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 
 			/* retrieve class entry */
 			ce = Z_OBJCE_P(val);
+
 			/* get function table */
-			ht = &ce->function_table;
+			HashTable *func_ht = &ce->function_table;
+			
 			/* foreach functions */
-			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
-			{
-				char					*key;
-				uint					keylen;
-				php_callback			cb;
-				zval					*z_fname;
+			zend_string				*key;
+			ulong num_key;
+			zval*					zval_func;
 
-				/* retrieve current key */
-				zend_hash_get_current_key_ex(ht, &key, &keylen, 0, 0, NULL);
-				if (zend_hash_get_current_data(ht, (void**)&fptr) == FAILURE) {
-					/* Should never actually fail
-					 * since the key is known to exist. */
-					continue;
-				}
+			ZEND_HASH_FOREACH_KEY_VAL(func_ht, num_key, key, zval_func) {
+				
+				php_callback *callback = (php_callback*)ecalloc(1, sizeof(php_callback));
+				
+				zend_function* fptr = Z_FUNC_P(zval_func);
 
-				/* store the function name as a zval */
-				MAKE_STD_ZVAL(z_fname);
-				ZVAL_STRING(z_fname, fptr->common.function_name, 1);
-
+				zval function_name;
+				ZVAL_STR(&function_name, fptr->common.function_name);
+				
 				/* then build the zend_fcall_info and cache */
-				cb.fci.size = sizeof(cb.fci);
-				cb.fci.function_table = &ce->function_table;
-				cb.fci.function_name = z_fname;
-				cb.fci.symbol_table = NULL;
-				cb.fci.object_ptr = val;
-				cb.fci.retval_ptr_ptr = NULL;
-				cb.fci.param_count = fptr->common.num_args;
-				cb.fci.params = NULL;
-				cb.fci.no_separation = 1;
+				callback->fci.size = sizeof(callback->fci);
+				callback->fci.function_name = function_name;
+				callback->fci.retval = NULL;
+				callback->fci.params = NULL;
+				callback->fci.object = Z_OBJ_P(val);
+				callback->fci.no_separation = 1;
 
-				cb.fci_cache.initialized = 1;
-				cb.fci_cache.function_handler = fptr;
-				cb.fci_cache.calling_scope = ce;
-				cb.fci_cache.object_ptr = val;
+				callback->fci_cache.initialized = 1;
+				callback->fci_cache.function_handler = fptr;
+				callback->fci_cache.calling_scope = ce;
+				callback->fci_cache.object = Z_OBJ_P(val);
 
 				/* store them */
-				zend_hash_add(jsref->ht, fptr->common.function_name, strlen(fptr->common.function_name), &cb, sizeof(cb), NULL);
+				zend_hash_add_new_ptr(jsref->ht, fptr->common.function_name, callback);
 
 				/* define the function */
-				JS_DefineFunction(ctx, jobj, fptr->common.function_name, generic_call, 1, 0);
-			}
+				JS_DefineFunction(ctx, jobj, ZSTR_VAL(fptr->common.function_name), generic_call, 1, 0);
+			} ZEND_HASH_FOREACH_END();
+
 			*jval = OBJECT_TO_JSVAL(jobj);
 			break;
-		case IS_ARRAY:
+		}
+		case IS_ARRAY: {
 			/* retrieve the array hash table */
-			ht = HASH_OF(val);
+			HashTable *array_ht = HASH_OF(val);
 
 			/* create JSObject */
 			jobj = JS_NewArrayObject(ctx, 0, nullptr);
@@ -638,47 +637,37 @@ void zval_to_jsval(zval *val, JSContext *ctx, jsval *jval TSRMLS_DC)
 			// prevent GC
 			JS_AddObjectRoot(ctx, &jobj);
 
-			/* foreach item */
-			for(zend_hash_internal_pointer_reset(ht); zend_hash_has_more_elements(ht) == SUCCESS; zend_hash_move_forward(ht))
-			{
-				char *key;
-				uint keylen;
-				ulong idx;
-				int type;
-				zval **ppzval;
-				char intIdx[25];
+			zend_string *string_key = NULL;
+			zend_ulong num_key = 0;
+			zval *z_value;
 
-				/* retrieve current key */
-				type = zend_hash_get_current_key_ex(ht, &key, &keylen, &idx, 0, NULL);
-				if (zend_hash_get_current_data(ht, (void**)&ppzval) == FAILURE) {
-					/* Should never actually fail
-					 * since the key is known to exist. */
-					continue;
-				}
-
-				if (type == HASH_KEY_IS_LONG)
+			ZEND_HASH_FOREACH_KEY_VAL(array_ht, num_key, string_key, z_value) {
+				
+				if (string_key) 
 				{
-					//sprintf(intIdx, "%ld", idx);
-					//php_jsobject_set_property(ctx, jobj, intIdx, *ppzval TSRMLS_CC);
+					php_jsobject_set_property(ctx, jobj, ZSTR_VAL(string_key), z_value);
+				}
+				else 
+				{
 					jsval jarrval;
-
+	
 					/* first convert zval to jsval */
-					zval_to_jsval(*ppzval, ctx, &jarrval TSRMLS_CC);
+					zval_to_jsval(z_value, ctx, &jarrval);
 
 					/* no ref behavior, just set a property */
 					//JSBool res = JS_SetProperty(ctx, obj, property_name, &jval);
 					//JSBool res = JS_SetElement(ctx, jobj, idx, &jarrval);
-					JSBool res = JS_DefineElement(ctx, jobj, idx, jarrval, nullptr, nullptr, 0);
-
+					JSBool res = JS_DefineElement(ctx, jobj, num_key, jarrval, nullptr, nullptr, 0);
 				}
-				else
-				{
-					php_jsobject_set_property(ctx, jobj, key, *ppzval TSRMLS_CC);
-				}
-			}
+				
+			} ZEND_HASH_FOREACH_END();
+			
 
 			*jval = OBJECT_TO_JSVAL(jobj);
+			
+			JS_RemoveObjectRoot(ctx, &jobj);
 			break;
+		}
 		case IS_NULL:
 			*jval = JSVAL_NULL;
 			break;

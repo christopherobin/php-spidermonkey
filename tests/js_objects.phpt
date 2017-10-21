@@ -33,7 +33,5 @@ try {
 ?>
 --EXPECTF--
 <?xml version="1.0"?>
-<foo>
-  <bar bleh="blah">meh</bar>
-</foo>
+<foo><bar bleh="blah">meh</bar></foo>
 string(33) "Trying to reference global object"
